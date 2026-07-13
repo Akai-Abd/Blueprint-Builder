@@ -25,17 +25,7 @@ export default function LoginPage() {
       {/* Theme Toggle Button */}
       <button 
         onClick={() => setIsDark(!isDark)}
-        className="clay-btn"
-        style={{
-          position: 'absolute',
-          top: '24px',
-          right: '24px',
-          width: '48px',
-          height: '48px',
-          borderRadius: '50%',
-          padding: 0,
-          zIndex: 20,
-        }}
+        className="clay-btn theme-toggle-btn"
         title="Toggle Theme"
       >
         {isDark ? '☀️' : '🌙'}
@@ -104,7 +94,7 @@ export default function LoginPage() {
           <div style={{ height: '2px', backgroundColor: 'rgba(163, 177, 198, 0.2)', flex: 1, borderRadius: '2px' }}></div>
         </div>
 
-        <div style={{ display: 'flex', gap: '16px' }}>
+        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
           <button type="button" className="clay-btn clay-btn--social">
             <svg viewBox="0 0 24 24" width="24" height="24">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
