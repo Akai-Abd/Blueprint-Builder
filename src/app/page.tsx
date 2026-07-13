@@ -188,6 +188,9 @@ export default function DashboardPage() {
           <button className="btn btn--primary" onClick={handleCreate} aria-label="Create new blueprint">
             ＋ New Blueprint
           </button>
+          <button className="btn btn--ghost" onClick={() => router.push('/login')} aria-label="Logout" style={{ marginLeft: '8px' }}>
+            🚪 Logout
+          </button>
         </div>
       </div>
 
