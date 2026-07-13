@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./public/logo.png" alt="Blueprint Builder Logo" width="120" height="120" />
+  <img src="./public/logo-clean.jpg" alt="Blueprint Builder Logo" width="120" height="120" />
   
   <h1 style="margin: 0;">🚀 Blueprint Builder</h1>
   
