@@ -13,6 +13,7 @@ export default function LoginPage() {
     e.preventDefault();
     if (username === 'admin' && password === 'password123') {
       setError('');
+      localStorage.setItem('isAuthenticated', 'true');
       router.push('/');
     } else {
       setError('Invalid credentials. Try admin / password123');

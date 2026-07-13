@@ -1,0 +1,502 @@
+# Blueprint Builder — Phased Implementation Plan
+
+> A guided, visual, searchable builder that enables users to create complete project blueprints by selecting options, generating structured project documentation.
+
+---
+
+## Project Summary
+
+Blueprint Builder is the core module of the Project Builder platform. Users select a project type (website, web app, mobile app, API, etc.), answer guided questions, choose technologies/features/integrations, get AI recommendations, validate their configuration, and generate complete project documentation (PRD, README, API spec, etc.).
+
+The PRD defines **8 architectural engines**, **6 builder categories**, **11 generated outputs**, and a rich UI with left nav, main panel, right summary panel, search bar, progress indicator, and AI assistant panel.
+
+---
+
+## Technology Stack Decision
+
+> [!IMPORTANT]
+> **Please confirm the tech stack before we begin.** Based on the PRD's complexity (dynamic question engine, search, AI, auto-save, multiple engines), I recommend:
+
+| Layer | Recommendation | Rationale |
+|-------|---------------|-----------|
+| **Framework** | **Next.js 15 (App Router)** | SSR for SEO, file-based routing, API routes for AI calls |
+| **Language** | **TypeScript** | Type safety critical for complex data models |
+| **Styling** | **Vanilla CSS** (per workspace rules) | Full control, no dependency |
+| **State Management** | **Zustand** | Lightweight, supports auto-save, undo/redo |
+| **Database** | **Supabase (PostgreSQL)** | Auth, storage, realtime — aligns with PRD integrations |
+| **AI** | **OpenAI / Anthropic API** | For recommendations, descriptions, explanations |
+| **Search** | **Client-side fuzzy search (Fuse.js)** | Fast instant search over option library |
+| **Export** | **jsPDF + file-saver** | PDF/Markdown/JSON export |
+
+> [!NOTE]
+> If you prefer a different stack (e.g., Vite + React, or a backend-less approach with localStorage), let me know and I'll adjust the plan.
+
+---
+
+## Open Questions
+
+1. **Backend vs Client-only?** — Should we use Supabase for persistence, or start with localStorage/IndexedDB and add a backend later?
+2. **AI Provider** — Which AI API to integrate (OpenAI, Anthropic, Google AI, or mock AI for now)?
+3. **Authentication** — Is user auth needed in Phase 1, or defer to a later phase?
+4. **Deployment target** — Vercel, self-hosted, or other?
+5. **The PRD mentions "Dashboard"** — Is there an existing dashboard, or should we build one as part of this?
+
+---
+
+## Phase Architecture
+
+```mermaid
+gantt
+    title Blueprint Builder — Phase Timeline
+    dateFormat  YYYY-MM-DD
+    section Phase 1
+    Foundation & Data Models       :p1a, 2026-07-14, 3d
+    Core UI Shell                  :p1b, after p1a, 3d
+    section Phase 2
+    Question Engine                :p2a, after p1b, 4d
+    Option Library                 :p2b, after p2a, 3d
+    section Phase 3
+    Search Engine                  :p3a, after p2b, 2d
+    Progress Engine                :p3b, after p3a, 2d
+    Validation Engine              :p3c, after p3b, 3d
+    section Phase 4
+    Review Screen                  :p4a, after p3c, 3d
+    Generation Engine              :p4b, after p4a, 4d
+    section Phase 5
+    Recommendation Engine (AI)     :p5a, after p4b, 4d
+    AI Assistant Panel             :p5b, after p5a, 3d
+    section Phase 6
+    Auto-Save & Persistence        :p6a, after p5b, 3d
+    Export & Share                  :p6b, after p6a, 2d
+    section Phase 7
+    Polish & Responsive            :p7a, after p6b, 3d
+    Testing & Launch               :p7b, after p7a, 3d
+```
+
+---
+
+## Phase 1: Foundation & Core UI Shell
+
+**Goal:** Project scaffolding, data models, design system, and the main layout shell.
+
+### [NEW] Project Scaffolding
+- Initialize Next.js 15 project with TypeScript
+- Configure project structure: `/app`, `/components`, `/lib`, `/data`, `/types`, `/stores`
+- Set up CSS design system (colors, typography, spacing, animations)
+
+### [NEW] `types/blueprint.ts`
+Core TypeScript interfaces:
+- `Blueprint` — top-level project data container
+- `ProjectType` — enum for Website, Web App, Android, iOS, Desktop, API, etc.
+- `ProjectBasics` — name, description, category, industry, audience, business model
+- `TechnologySelection` — frontend, backend, database, hosting, etc.
+- `FeatureSelection` — auth, dashboard, payments, etc.
+- `IntegrationSelection` — Stripe, Firebase, Supabase, etc.
+- `QualityConfig` — security, performance, SEO, testing, deployment
+- `BuilderSection` — metadata for each builder category
+- `Option` — universal option structure (name, description, advantages, limitations, compatible techs, alternatives, difficulty, popularity, recommendation score, tags, docs link)
+- `ValidationResult`, `Recommendation`
+
+### [NEW] `stores/blueprintStore.ts`
+Zustand store with:
+- Blueprint state (all sections)
+- Actions: `setProjectBasics`, `addTechnology`, `removeTechnology`, `addFeature`, `toggleIntegration`, etc.
+- Undo/redo history stack
+- Computed: completion percentage, validation status
+
+### [NEW] Core Layout Components
+- `BuilderLayout` — 3-panel layout (left nav, main, right summary)
+- `LeftNavigation` — category list with completion indicators
+- `MainPanel` — renders active section
+- `RightSummaryPanel` — live project summary
+- `ProgressBar` — completion percentage
+- `StickyActionBar` — Save, Next, Back, Generate buttons
+
+### Deliverables
+- Running app with 3-panel layout
+- Navigation between empty section placeholders
+- Type-safe data model
+- Design system with premium aesthetics (dark mode, gradients, glassmorphism)
+
+---
+
+## Phase 2: Question Engine & Option Library
+
+**Goal:** The dynamic question engine that adapts based on selections, and a rich option library.
+
+### [NEW] `data/options/` directory
+Static JSON/TS data files:
+- `technologies.ts` — All technology options (Next.js, React, Vue, Django, etc.) with full metadata per PRD §9
+- `features.ts` — All feature options with metadata
+- `integrations.ts` — All integration options with metadata
+- `platforms.ts` — Platform definitions
+- `industries.ts` — Industry categories
+
+### [NEW] `lib/questionEngine.ts`
+- `getQuestionsForSection(section, currentBlueprint)` → returns filtered, ordered questions
+- Conditional display logic (e.g., Website → show SEO/Blog/CMS; Android → show Push Notifications/Offline Mode)
+- Question metadata: required, dependencies, tooltips, examples
+- Field types: single-select, multi-select, text, toggle, range
+
+### [NEW] `components/questions/`
+- `QuestionRenderer` — renders question based on type
+- `SingleSelect` — card-based single selection
+- `MultiSelect` — card-based multi selection with search
+- `TextInput` — styled text input with validation
+- `OptionCard` — rich card showing option name, description, difficulty badge, popularity indicator, "Why this?" tooltip
+
+### [NEW] `components/sections/`
+- `ProjectBasicsSection` — project name, description, category, industry, platform, audience, business model
+- `TechnologySection` — frontend, backend, database, hosting, etc.
+- `FeaturesSection` — authentication, dashboard, payments, etc.
+- `IntegrationsSection` — third-party services
+- `QualitySection` — security, performance, SEO, testing
+
+### Deliverables
+- Dynamic questions that adapt to project type
+- Rich option cards with full metadata
+- Tooltips explaining every option
+- Conditional section visibility
+
+---
+
+## Phase 3: Search, Progress & Validation
+
+**Goal:** Instant search across all options, progress tracking, and configuration validation.
+
+### [NEW] `lib/searchEngine.ts`
+- Fuse.js integration for fuzzy search across all options
+- Category filtering, tag filtering
+- Recently used tracking (localStorage)
+- Favorites system
+- Keyboard shortcut support (Cmd/Ctrl+K to open search)
+
+### [NEW] `components/SearchModal.tsx`
+- Command palette style search modal
+- Instant results with category badges
+- Keyboard navigation
+- Filter chips for categories/tags
+- Popular options section
+
+### [NEW] `lib/progressEngine.ts`
+- Calculate completion percentage per section and overall
+- Track completed vs remaining sections
+- Identify required actions
+- Return validation status per section
+
+### [NEW] `lib/validationEngine.ts`
+- `validateBlueprint(blueprint)` → `ValidationResult[]`
+- Rules: missing required fields, conflicting selections (e.g., iOS + Windows Desktop hosting), unsupported combinations, empty categories, security warnings, performance risks
+- Clear error messages with fix suggestions
+- Severity levels: error, warning, info
+
+### [NEW] `components/ValidationPanel.tsx`
+- Shows validation results grouped by severity
+- Click-to-fix: jumps to the relevant section
+- Real-time validation as user makes changes
+
+### Deliverables
+- Working search with fuzzy matching
+- Live progress bar with section-level detail
+- Validation that catches real configuration issues
+- Keyboard shortcuts
+
+---
+
+## Phase 4: Review Screen & Document Generation
+
+**Goal:** A comprehensive review screen and the ability to generate all specified documents.
+
+### [NEW] `components/ReviewScreen.tsx`
+- Full project summary organized by category
+- Selected technologies with compatibility indicators
+- Features list with status
+- Integrations summary
+- Warnings and recommendations highlighted
+- "Jump to section" links for quick edits
+- Side-by-side comparison (selected vs recommended)
+
+### [NEW] `lib/generationEngine.ts`
+Core generation logic:
+- `generatePRD(blueprint)` → structured PRD markdown
+- `generateREADME(blueprint)` → project README
+- `generateAPISpec(blueprint)` → API specification
+- `generateDatabaseDesign(blueprint)` → schema design
+- `generateUserStories(blueprint)` → user stories with acceptance criteria
+- `generateArchitecture(blueprint)` → architecture overview
+- `generateTaskBreakdown(blueprint)` → development tasks
+- `generateTestingPlan(blueprint)` → testing strategy
+- `generateDeploymentGuide(blueprint)` → deployment instructions
+- `generateAIContext(blueprint)` → AI context file
+
+### [NEW] `components/GenerationScreen.tsx`
+- Document selection (which docs to generate)
+- Generation progress with per-document status
+- Preview generated documents
+- Markdown rendering with syntax highlighting
+
+### Deliverables
+- Complete review screen with all project details
+- Generation of all 11 document types
+- Document preview with markdown rendering
+- Jump-to-edit from review
+
+---
+
+## Phase 5: AI Recommendations & Assistant
+
+**Goal:** Smart recommendations and an AI assistant panel.
+
+### [NEW] `lib/recommendationEngine.ts`
+- Rule-based recommendations (no AI dependency):
+  - Compatible technologies (Next.js → Tailwind, Vercel, Prisma)
+  - Missing features (auth selected but no security config)
+  - Security improvements
+  - Performance improvements
+  - Accessibility improvements
+  - Common integrations for selected stack
+- Recommendation scoring and prioritization
+
+### [NEW] `lib/aiAssistant.ts`
+- API route for AI calls (`/api/ai/recommend`, `/api/ai/explain`, `/api/ai/describe`)
+- AI-powered: explain options, suggest architecture, estimate complexity, generate descriptions
+- Graceful fallback if AI unavailable
+
+### [NEW] `components/AIAssistantPanel.tsx`
+- Slide-out panel on the right
+- Chat-like interface for asking questions about options
+- Contextual recommendations based on current section
+- "Why this recommendation?" explanations
+- Never silently changes selections (per PRD §16)
+
+### [NEW] `components/RecommendationBadge.tsx`
+- Inline recommendation badges on option cards
+- "Recommended for your stack" indicators
+- Compatibility scores
+
+### Deliverables
+- Rule-based recommendations working without AI
+- AI assistant panel for explanations and suggestions
+- Contextual recommendations per section
+- Recommendation badges on option cards
+
+---
+
+## Phase 6: Auto-Save, Persistence & Export
+
+**Goal:** Save after every change, session recovery, undo/redo, and export.
+
+### [NEW] `lib/autoSave.ts`
+- Debounced auto-save on every state change
+- Save to localStorage (Phase 1) / Supabase (later)
+- Session recovery on page load
+- Revision history tracking
+- Undo/redo via Zustand middleware
+
+### [NEW] `lib/exportEngine.ts`
+- Export as JSON (full blueprint data)
+- Export as Markdown (generated documents)
+- Export as PDF (via jsPDF)
+- Export as ZIP (all documents bundled)
+- Share link generation (if backend available)
+
+### [NEW] `components/ExportModal.tsx`
+- Format selection (JSON, MD, PDF, ZIP)
+- Document selection (which docs to include)
+- Download trigger
+- Share link copy
+
+### [NEW] Blueprint CRUD Operations
+- Create new blueprint
+- Edit existing blueprint
+- Duplicate blueprint
+- Delete blueprint with confirmation
+- Save as draft / mark complete
+- Resume later from dashboard
+
+### [NEW] `app/page.tsx` — Dashboard
+- List saved blueprints
+- Create new, edit, duplicate, delete
+- Search/filter blueprints
+- Draft vs completed status
+
+### Deliverables
+- Auto-save working on every change
+- Undo/redo functional
+- Export in 4 formats
+- Dashboard with CRUD operations
+- Session recovery
+
+---
+
+## Phase 7: Polish, Responsive & Launch
+
+**Goal:** Final polish, mobile responsiveness, accessibility, performance optimization, and testing.
+
+### UI Polish
+- Micro-animations on all interactions (card selections, panel transitions, progress updates)
+- Smooth page transitions between sections
+- Loading skeletons
+- Empty states with helpful guidance
+- Error boundaries
+
+### Responsive Design
+- Desktop: full 3-panel layout
+- Tablet: collapsible left nav, hidden right panel (toggle)
+- Mobile: single panel with bottom navigation, swipe between sections
+
+### Accessibility
+- Keyboard navigation through all sections
+- ARIA labels on all interactive elements
+- Focus management
+- Screen reader support
+- High contrast mode support
+
+### Performance
+- Lazy load sections and heavy components
+- Memoize expensive computations (search, validation, recommendations)
+- Optimize re-renders in option grids
+- Bundle size analysis
+
+### Testing & Verification
+- Component smoke tests
+- Question engine logic tests
+- Validation engine tests
+- Generation engine tests
+- End-to-end flow: create → configure → validate → generate → export
+- Cross-browser testing
+
+### Deliverables
+- Fully responsive on desktop, tablet, mobile
+- Keyboard accessible
+- Smooth animations throughout
+- All engines tested
+- Production-ready build
+
+---
+
+## File Structure Overview
+
+```
+/blueprint-builder
+├── app/
+│   ├── page.tsx                    # Dashboard
+│   ├── layout.tsx                  # Root layout
+│   ├── builder/
+│   │   └── [id]/
+│   │       └── page.tsx            # Builder view
+│   └── api/
+│       └── ai/
+│           ├── recommend/route.ts
+│           ├── explain/route.ts
+│           └── describe/route.ts
+├── components/
+│   ├── layout/
+│   │   ├── BuilderLayout.tsx
+│   │   ├── LeftNavigation.tsx
+│   │   ├── MainPanel.tsx
+│   │   ├── RightSummaryPanel.tsx
+│   │   ├── StickyActionBar.tsx
+│   │   └── ProgressBar.tsx
+│   ├── questions/
+│   │   ├── QuestionRenderer.tsx
+│   │   ├── SingleSelect.tsx
+│   │   ├── MultiSelect.tsx
+│   │   ├── TextInput.tsx
+│   │   └── OptionCard.tsx
+│   ├── sections/
+│   │   ├── ProjectBasicsSection.tsx
+│   │   ├── TechnologySection.tsx
+│   │   ├── FeaturesSection.tsx
+│   │   ├── IntegrationsSection.tsx
+│   │   └── QualitySection.tsx
+│   ├── ReviewScreen.tsx
+│   ├── GenerationScreen.tsx
+│   ├── SearchModal.tsx
+│   ├── ValidationPanel.tsx
+│   ├── AIAssistantPanel.tsx
+│   ├── ExportModal.tsx
+│   └── RecommendationBadge.tsx
+├── data/
+│   └── options/
+│       ├── technologies.ts
+│       ├── features.ts
+│       ├── integrations.ts
+│       ├── platforms.ts
+│       └── industries.ts
+├── lib/
+│   ├── questionEngine.ts
+│   ├── searchEngine.ts
+│   ├── progressEngine.ts
+│   ├── validationEngine.ts
+│   ├── recommendationEngine.ts
+│   ├── generationEngine.ts
+│   ├── aiAssistant.ts
+│   ├── autoSave.ts
+│   └── exportEngine.ts
+├── stores/
+│   └── blueprintStore.ts
+├── types/
+│   └── blueprint.ts
+└── styles/
+    ├── globals.css
+    ├── builder.css
+    ├── components.css
+    └── animations.css
+```
+
+---
+
+## Verification Plan
+
+### Automated Tests
+```bash
+npm run test          # Unit tests for engines (question, validation, generation, search)
+npm run test:e2e      # E2E: full builder flow
+npm run build         # Verify production build succeeds
+npm run lint          # TypeScript + ESLint checks
+```
+
+### Manual Verification
+- Create a blueprint for each project type (Website, Web App, Android, API)
+- Verify dynamic questions change per project type
+- Search for technologies and verify results
+- Trigger validation errors and verify messages
+- Generate all 11 document types and verify content
+- Export as JSON, MD, PDF, ZIP
+- Test responsive layout on mobile/tablet
+- Test keyboard navigation end-to-end
+
+---
+
+## Phase Dependencies
+
+```mermaid
+graph LR
+    P1[Phase 1: Foundation] --> P2[Phase 2: Questions & Options]
+    P2 --> P3[Phase 3: Search, Progress, Validation]
+    P3 --> P4[Phase 4: Review & Generation]
+    P4 --> P5[Phase 5: AI & Recommendations]
+    P2 --> P6[Phase 6: Save & Export]
+    P5 --> P7[Phase 7: Polish & Launch]
+    P6 --> P7
+```
+
+> [!TIP]
+> **Phases 5 and 6 can run in parallel** since AI/Recommendations and Auto-Save/Export are independent systems.
+
+---
+
+## Estimated Effort
+
+| Phase | Description | Estimated Duration |
+|-------|------------|-------------------|
+| **1** | Foundation & Core UI Shell | 2–3 days |
+| **2** | Question Engine & Option Library | 3–4 days |
+| **3** | Search, Progress & Validation | 3–4 days |
+| **4** | Review Screen & Document Generation | 3–4 days |
+| **5** | AI Recommendations & Assistant | 3–4 days |
+| **6** | Auto-Save, Persistence & Export | 2–3 days |
+| **7** | Polish, Responsive & Launch | 3–4 days |
+| **Total** | | **~19–26 days** |
+
