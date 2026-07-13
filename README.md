@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/tandpfun/skill-icons/main/icons/NextJS-Dark.svg" alt="Blueprint Builder Logo" width="120" height="120" />
+  <img src="./public/logo.png" alt="Blueprint Builder Logo" width="120" height="120" />
   
   <h1 style="margin: 0;">🚀 Blueprint Builder</h1>
   
