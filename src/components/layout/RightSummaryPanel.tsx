@@ -2,6 +2,7 @@
 
 import { useBlueprintStore } from '@/stores/blueprintStore';
 import ValidationPanel from '@/components/ValidationPanel';
+import { useDebouncedBlueprint } from '@/hooks/useDebouncedBlueprint';
 
 interface RightSummaryPanelProps {
   isOpen?: boolean;
@@ -17,7 +18,7 @@ function formatEnum(val: string | null): string {
 }
 
 export default function RightSummaryPanel({ isOpen, onClose }: RightSummaryPanelProps) {
-  const blueprint = useBlueprintStore((s) => s.blueprint);
+  const blueprint = useDebouncedBlueprint();
   const { basics, technology, features, integrations, quality } = blueprint;
 
   const techEntries = Object.entries(technology).filter(([, arr]) => arr.length > 0);

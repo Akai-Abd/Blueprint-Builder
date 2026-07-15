@@ -5,8 +5,8 @@ import { useBlueprintStore } from '@/stores/blueprintStore';
 import {
   documentTypes,
   type GeneratedDocument,
-} from '@/lib/generationEngine';
-import { exportAsZIP } from '@/lib/exportEngine';
+} from '@/lib/generation';
+import { exportAsZIP } from '@/lib/export';
 import { MODELS_BY_PROVIDER } from '@/lib/aiModels';
 
 interface GenerationScreenProps {

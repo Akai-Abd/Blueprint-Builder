@@ -12,7 +12,7 @@ import AIAssistantPanel from '@/components/AIAssistantPanel';
 import ExportModal from '@/components/ExportModal';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { setAutoSaveCallbacks } from '@/lib/autoSave';
-import type { GeneratedDocument } from '@/lib/generationEngine';
+import type { GeneratedDocument } from '@/lib/generation';
 
 type Screen = 'builder' | 'review' | 'generation';
 

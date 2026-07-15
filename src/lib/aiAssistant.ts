@@ -1,6 +1,6 @@
 import { Blueprint, BuilderSectionId } from '@/types/blueprint';
 import { allTechnologies } from '@/data/options/technologies';
-import { generateRecommendations } from './recommendationEngine';
+import { generateRecommendations } from './recommendation';
 
 // ─── Types ───────────────────────────────────────────────────────────
 

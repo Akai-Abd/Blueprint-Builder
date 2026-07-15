@@ -11,7 +11,7 @@ import {
   trackUsage,
   type SearchResult,
   type SearchableItem,
-} from '@/lib/searchEngine';
+} from '@/lib/search';
 import { useBlueprintStore } from '@/stores/blueprintStore';
 import { BuilderSectionId, type Blueprint } from '@/types/blueprint';
 

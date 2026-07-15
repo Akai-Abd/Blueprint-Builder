@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createEmptyBlueprint, ProjectType } from '@/types/blueprint';
-import { validateBlueprint } from '@/lib/validationEngine';
+import { validateBlueprint } from '@/lib/validation';
 
 describe('validationEngine', () => {
   it('reports errors for empty blueprint', () => {

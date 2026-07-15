@@ -6,7 +6,7 @@ import {
   documentTypes,
   generateDocuments,
   type GeneratedDocument,
-} from '@/lib/generationEngine';
+} from '@/lib/generation';
 import {
   exportAsJSON,
   exportAsMarkdown,
@@ -14,7 +14,7 @@ import {
   exportAsZIP,
   importFromJSON,
   generateShareLink,
-} from '@/lib/exportEngine';
+} from '@/lib/export';
 import { debouncedSave } from '@/lib/autoSave';
 
 type ExportFormat = 'json' | 'markdown' | 'pdf' | 'zip' | 'share';

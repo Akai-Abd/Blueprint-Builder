@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useBlueprintStore } from '@/stores/blueprintStore';
-import { getFilteredIntegrations } from '@/lib/questionEngine';
+import { getFilteredIntegrations } from '@/lib/question';
 import OptionCard from '@/components/questions/OptionCard';
 
 export default function IntegrationsSection() {

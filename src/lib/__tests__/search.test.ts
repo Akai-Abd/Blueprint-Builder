@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { searchOptions, getAllSearchableItems } from '@/lib/searchEngine';
+import { searchOptions, getAllSearchableItems } from '@/lib/search';
 
 describe('searchEngine', () => {
   it('builds a searchable index with all option types', () => {

@@ -1,7 +1,7 @@
 'use client';
 
 import type { Blueprint } from '@/types/blueprint';
-import type { GeneratedDocument } from '@/lib/generationEngine';
+import type { GeneratedDocument } from '@/lib/generation';
 
 // ─── Export as JSON ──────────────────────────────────────────────────
 
@@ -147,6 +147,8 @@ export async function exportAsZIP(
   // Add each document as an .md file
   for (const doc of docs) {
     zip.file(`${sanitize(doc.id)}.md`, `# ${doc.title}\n\n${doc.content}`);
+    // Yield back to the browser's event loop to prevent blocking the UI
+    await new Promise((r) => setTimeout(r, 0));
   }
 
   // Add raw blueprint JSON

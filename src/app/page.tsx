@@ -10,8 +10,8 @@ import {
 } from '@/lib/autoSave';
 import { createEmptyBlueprint } from '@/types/blueprint';
 import { saveBlueprint, setCurrentBlueprintId } from '@/lib/autoSave';
-import { getOverallProgress } from '@/lib/progressEngine';
-import { importFromJSON } from '@/lib/exportEngine';
+import { getOverallProgress } from '@/lib/progress';
+import { importFromJSON } from '@/lib/export';
 import { DashboardSkeleton } from '@/components/LoadingSkeleton';
 import Image from 'next/image';
 

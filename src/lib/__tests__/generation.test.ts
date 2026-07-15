@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createEmptyBlueprint, ProjectType } from '@/types/blueprint';
-import { generateDocuments, documentTypes } from '@/lib/generationEngine';
+import { generateDocuments, documentTypes } from '@/lib/generation';
 
 describe('generationEngine', () => {
   it('has 11 document types registered', () => {

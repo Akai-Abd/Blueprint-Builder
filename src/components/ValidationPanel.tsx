@@ -3,7 +3,8 @@
 import { useMemo } from 'react';
 import { useBlueprintStore } from '@/stores/blueprintStore';
 import { BUILDER_SECTIONS, BuilderSectionId, ValidationSeverity } from '@/types/blueprint';
-import { validateBlueprint, getValidationSummary } from '@/lib/validationEngine';
+import { validateBlueprint, getValidationSummary } from '@/lib/validation';
+import { useDebouncedBlueprint } from '@/hooks/useDebouncedBlueprint';
 
 const SEVERITY_ICON: Record<ValidationSeverity, string> = {
   [ValidationSeverity.Error]: '🔴',
@@ -18,7 +19,7 @@ const SEVERITY_CLASS: Record<ValidationSeverity, string> = {
 };
 
 export default function ValidationPanel() {
-  const blueprint = useBlueprintStore((s) => s.blueprint);
+  const blueprint = useDebouncedBlueprint();
   const setActiveSection = useBlueprintStore((s) => s.setActiveSection);
 
   const results = useMemo(() => validateBlueprint(blueprint), [blueprint]);
@@ -99,7 +100,7 @@ export default function ValidationPanel() {
 
 /** Compact validation summary for use in the action bar */
 export function ValidationSummaryBadge() {
-  const blueprint = useBlueprintStore((s) => s.blueprint);
+  const blueprint = useDebouncedBlueprint();
   const results = useMemo(() => validateBlueprint(blueprint), [blueprint]);
   const summary = useMemo(() => getValidationSummary(results), [results]);
 

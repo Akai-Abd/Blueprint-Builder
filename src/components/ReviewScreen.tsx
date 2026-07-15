@@ -7,8 +7,8 @@ import { allTechnologies } from '@/data/options/technologies';
 import { featureOptions } from '@/data/options/features';
 import { integrationOptions } from '@/data/options/integrations';
 import { qualityOptions } from '@/data/options/quality';
-import { validateBlueprint, getValidationSummary } from '@/lib/validationEngine';
-import { getOverallProgress } from '@/lib/progressEngine';
+import { validateBlueprint, getValidationSummary } from '@/lib/validation';
+import { getOverallProgress } from '@/lib/progress';
 
 interface ReviewScreenProps {
   onBack: () => void;

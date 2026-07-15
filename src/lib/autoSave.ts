@@ -119,70 +119,10 @@ export function debouncedSave(blueprint: Blueprint, delayMs = 500): void {
   onSaveStart?.();
   saveTimer = setTimeout(() => {
     saveBlueprint(blueprint);
-    saveRevision(blueprint);
     setCurrentBlueprintId(blueprint.id);
     onSaveEnd?.();
     saveTimer = null;
   }, delayMs);
 }
 
-// ─── Persistent Revision History ─────────────────────────────────────
 
-const REVISION_KEY_PREFIX = 'bb_revisions_';
-const MAX_REVISIONS = 20;
-
-export interface RevisionEntry {
-  savedAt: string;
-  snapshot: Blueprint;
-}
-
-export function saveRevision(blueprint: Blueprint): void {
-  if (typeof window === 'undefined') return;
-  try {
-    const key = REVISION_KEY_PREFIX + blueprint.id;
-    const raw = localStorage.getItem(key);
-    let revisions: RevisionEntry[] = raw ? JSON.parse(raw) : [];
-
-    // Don't save if nothing changed since last revision
-    if (revisions.length > 0) {
-      const lastSnapshot = JSON.stringify(revisions[0].snapshot);
-      const current = JSON.stringify(blueprint);
-      if (lastSnapshot === current) return;
-    }
-
-    revisions.unshift({
-      savedAt: new Date().toISOString(),
-      snapshot: JSON.parse(JSON.stringify(blueprint)),
-    });
-
-    if (revisions.length > MAX_REVISIONS) {
-      revisions = revisions.slice(0, MAX_REVISIONS);
-    }
-
-    localStorage.setItem(key, JSON.stringify(revisions));
-  } catch { /* storage full or unavailable */ }
-}
-
-export function getRevisionHistory(blueprintId: string): RevisionEntry[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const key = REVISION_KEY_PREFIX + blueprintId;
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function restoreRevision(
-  blueprintId: string,
-  revisionIndex: number,
-): Blueprint | null {
-  const revisions = getRevisionHistory(blueprintId);
-  if (revisionIndex < 0 || revisionIndex >= revisions.length) return null;
-  const snapshot = revisions[revisionIndex].snapshot;
-  return {
-    ...snapshot,
-    updatedAt: new Date().toISOString(),
-  };
-}

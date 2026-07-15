@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { Option, Difficulty, Recommendation } from '@/types/blueprint';
 import RecommendationBadge from '@/components/RecommendationBadge';
 
@@ -18,7 +18,7 @@ const difficultyClass: Record<Difficulty, string> = {
   [Difficulty.Expert]: 'option-card__badge--expert',
 };
 
-export default function OptionCard({ option, selected, onToggle, recommendation }: OptionCardProps) {
+export default memo(function OptionCard({ option, selected, onToggle, recommendation }: OptionCardProps) {
   const [showDetail, setShowDetail] = useState(false);
 
   return (
@@ -79,7 +79,7 @@ export default function OptionCard({ option, selected, onToggle, recommendation 
       )}
     </>
   );
-}
+});
 
 // ─── Detail Panel ────────────────────────────────────────────────────
 

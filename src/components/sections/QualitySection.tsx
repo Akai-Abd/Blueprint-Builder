@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { useBlueprintStore } from '@/stores/blueprintStore';
 import { Blueprint } from '@/types/blueprint';
 import { qualityOptions, qualityCategories } from '@/data/options/quality';
-import { getRelevantQualityCategoryIds } from '@/lib/questionEngine';
+import { getRelevantQualityCategoryIds } from '@/lib/question';
 import OptionCard from '@/components/questions/OptionCard';
 
 export default function QualitySection() {

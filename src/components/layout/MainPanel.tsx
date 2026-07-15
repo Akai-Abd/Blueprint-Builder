@@ -10,7 +10,8 @@ import FeaturesSection from '@/components/sections/FeaturesSection';
 import IntegrationsSection from '@/components/sections/IntegrationsSection';
 import QualitySection from '@/components/sections/QualitySection';
 import { ValidationSummaryBadge } from '@/components/ValidationPanel';
-import { generateRecommendations } from '@/lib/recommendationEngine';
+import { generateRecommendations } from '@/lib/recommendation';
+import { useDebouncedBlueprint } from '@/hooks/useDebouncedBlueprint';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import type { SaveStatus } from './BuilderLayout';
 
@@ -44,27 +45,7 @@ export default function MainPanel({
 }: MainPanelProps) {
   const activeSection = useBlueprintStore((s) => s.blueprint.activeSection);
   const section = BUILDER_SECTIONS.find((s) => s.id === activeSection);
-  const undo = useBlueprintStore((s) => s.undo);
-  const redo = useBlueprintStore((s) => s.redo);
-  const canUndo = useBlueprintStore((s) => s.canUndo);
-  const canRedo = useBlueprintStore((s) => s.canRedo);
 
-  // Global Ctrl+Z / Ctrl+Y
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        undo();
-      }
-      if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
-        e.preventDefault();
-        redo();
-      }
-    }
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo]);
 
   const ActiveComponent = SECTION_COMPONENTS[activeSection];
 
@@ -125,24 +106,6 @@ export default function MainPanel({
               📊
             </button>
           )}
-          <button
-            className="btn btn--ghost btn--sm"
-            title="Undo (Ctrl+Z)"
-            onClick={undo}
-            disabled={!canUndo()}
-            aria-label="Undo last change"
-          >
-            ↩
-          </button>
-          <button
-            className="btn btn--ghost btn--sm"
-            title="Redo (Ctrl+Y)"
-            onClick={redo}
-            disabled={!canRedo()}
-            aria-label="Redo last change"
-          >
-            ↪
-          </button>
         </div>
       </div>
 
@@ -163,10 +126,6 @@ function ActionBar({ onReview }: { onReview: () => void }) {
   const activeSection = useBlueprintStore((s) => s.blueprint.activeSection);
   const goToNextSection = useBlueprintStore((s) => s.goToNextSection);
   const goToPrevSection = useBlueprintStore((s) => s.goToPrevSection);
-  const undo = useBlueprintStore((s) => s.undo);
-  const redo = useBlueprintStore((s) => s.redo);
-  const canUndo = useBlueprintStore((s) => s.canUndo);
-  const canRedo = useBlueprintStore((s) => s.canRedo);
 
   const currentIdx = BUILDER_SECTIONS.findIndex((s) => s.id === activeSection);
   const isFirst = currentIdx === 0;
@@ -183,27 +142,6 @@ function ActionBar({ onReview }: { onReview: () => void }) {
         >
           ← Back
         </button>
-        {/* Mobile undo/redo buttons */}
-        <div className="action-bar__undo-redo">
-          <button
-            className="btn btn--ghost btn--sm"
-            onClick={undo}
-            disabled={!canUndo()}
-            aria-label="Undo"
-            title="Undo"
-          >
-            ↩
-          </button>
-          <button
-            className="btn btn--ghost btn--sm"
-            onClick={redo}
-            disabled={!canRedo()}
-            aria-label="Redo"
-            title="Redo"
-          >
-            ↪
-          </button>
-        </div>
         <span className="action-bar__step-info" aria-live="polite">
           Step {currentIdx + 1} of {BUILDER_SECTIONS.length}
         </span>
@@ -235,7 +173,7 @@ function ActionBar({ onReview }: { onReview: () => void }) {
 }
 
 function AIToggleButton({ onClick }: { onClick: () => void }) {
-  const blueprint = useBlueprintStore((s) => s.blueprint);
+  const blueprint = useDebouncedBlueprint();
   const recCount = useMemo(
     () => generateRecommendations(blueprint).length,
     [blueprint],
@@ -251,7 +189,7 @@ function AIToggleButton({ onClick }: { onClick: () => void }) {
       <span className="ai-toggle-btn__dot" aria-hidden="true" />
       <span>✨ AI Assistant</span>
       {recCount > 0 && (
-        <span className="ai-toggle-btn__badge" aria-hidden="true">{recCount > 9 ? '9+' : recCount}</span>
+        <span className="ai-toggle-btn__badge" aria-hidden="true">{recCount > 99 ? '99+' : recCount}</span>
       )}
     </button>
   );

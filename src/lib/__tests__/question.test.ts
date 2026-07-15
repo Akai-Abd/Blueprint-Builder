@@ -5,7 +5,7 @@ import {
   getFilteredIntegrations,
   getRelevantTechCategoryIds,
   getRelevantQualityCategoryIds,
-} from '@/lib/questionEngine';
+} from '@/lib/question';
 
 describe('questionEngine', () => {
   describe('getFilteredFeatures', () => {

@@ -9,7 +9,8 @@ import {
   type AssistantMessage,
   type QuickAction,
 } from '@/lib/aiAssistant';
-import { generateRecommendations } from '@/lib/recommendationEngine';
+import { generateRecommendations } from '@/lib/recommendation';
+import { useDebouncedBlueprint } from '@/hooks/useDebouncedBlueprint';
 
 interface AIAssistantPanelProps {
   isOpen: boolean;
@@ -17,8 +18,8 @@ interface AIAssistantPanelProps {
 }
 
 export default function AIAssistantPanel({ isOpen, onClose }: AIAssistantPanelProps) {
-  const blueprint = useBlueprintStore((s) => s.blueprint);
-  const activeSection = blueprint.activeSection;
+  const activeSection = useBlueprintStore((s) => s.blueprint.activeSection);
+  const blueprint = useDebouncedBlueprint();
 
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [input, setInput] = useState('');

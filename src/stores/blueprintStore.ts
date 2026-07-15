@@ -20,8 +20,6 @@ interface HistoryEntry {
 
 interface BlueprintStore {
   blueprint: Blueprint;
-  history: HistoryEntry[];
-  historyIndex: number;
   isSaving: boolean;
 
   // Navigation
@@ -57,12 +55,6 @@ interface BlueprintStore {
   resetBlueprint: () => void;
   loadBlueprint: (blueprint: Blueprint) => void;
 
-  // Undo/Redo
-  undo: () => void;
-  redo: () => void;
-  canUndo: () => boolean;
-  canRedo: () => boolean;
-
   // Computed
   getCompletionPercentage: () => number;
   getSectionCompletion: (section: BuilderSectionId) => number;
@@ -81,17 +73,6 @@ const SECTION_ORDER: BuilderSectionId[] = [
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 
-function pushHistory(state: BlueprintStore): Partial<BlueprintStore> {
-  const newHistory = state.history.slice(0, state.historyIndex + 1);
-  newHistory.push({
-    blueprint: JSON.parse(JSON.stringify(state.blueprint)),
-    timestamp: Date.now(),
-  });
-  // Keep max 50 history entries
-  if (newHistory.length > 50) newHistory.shift();
-  return { history: newHistory, historyIndex: newHistory.length - 1 };
-}
-
 function toggleInArray<T extends string>(arr: T[], id: T): T[] {
   return arr.includes(id) ? arr.filter((i) => i !== id) : [...arr, id];
 }
@@ -102,8 +83,6 @@ export const useBlueprintStore = create<BlueprintStore>((set, get) => {
   const initial = createEmptyBlueprint();
   return {
     blueprint: initial,
-    history: [{ blueprint: JSON.parse(JSON.stringify(initial)), timestamp: Date.now() }],
-    historyIndex: 0,
     isSaving: false,
 
     // ── Navigation ────────────────────────────────────────────────────
@@ -145,7 +124,6 @@ export const useBlueprintStore = create<BlueprintStore>((set, get) => {
     // ── Project Basics ────────────────────────────────────────────────
     setProjectName: (name) =>
       set((s) => ({
-        ...pushHistory(s),
         blueprint: {
           ...s.blueprint,
           basics: { ...s.blueprint.basics, name },
@@ -155,7 +133,6 @@ export const useBlueprintStore = create<BlueprintStore>((set, get) => {
 
     setProjectDescription: (description) =>
       set((s) => ({
-        ...pushHistory(s),
         blueprint: {
           ...s.blueprint,
           basics: { ...s.blueprint.basics, description },
@@ -165,7 +142,6 @@ export const useBlueprintStore = create<BlueprintStore>((set, get) => {
 
     setCategory: (category) =>
       set((s) => ({
-        ...pushHistory(s),
         blueprint: {
           ...s.blueprint,
           basics: { ...s.blueprint.basics, category },
@@ -175,7 +151,6 @@ export const useBlueprintStore = create<BlueprintStore>((set, get) => {
 
     setIndustry: (industry) =>
       set((s) => ({
-        ...pushHistory(s),
         blueprint: {
           ...s.blueprint,
           basics: { ...s.blueprint.basics, industry },
@@ -185,7 +160,6 @@ export const useBlueprintStore = create<BlueprintStore>((set, get) => {
 
     setProjectType: (type) =>
       set((s) => ({
-        ...pushHistory(s),
         blueprint: {
           ...s.blueprint,
           basics: { ...s.blueprint.basics, projectType: type },
@@ -195,7 +169,6 @@ export const useBlueprintStore = create<BlueprintStore>((set, get) => {
 
     setTargetAudience: (audience) =>
       set((s) => ({
-        ...pushHistory(s),
         blueprint: {
           ...s.blueprint,
           basics: { ...s.blueprint.basics, targetAudience: audience },
@@ -205,7 +178,6 @@ export const useBlueprintStore = create<BlueprintStore>((set, get) => {
 
     setBusinessModel: (model) =>
       set((s) => ({
-        ...pushHistory(s),
         blueprint: {
           ...s.blueprint,
           basics: { ...s.blueprint.basics, businessModel: model },
@@ -215,7 +187,6 @@ export const useBlueprintStore = create<BlueprintStore>((set, get) => {
 
     toggleTargetPlatform: (platform) =>
       set((s) => ({
-        ...pushHistory(s),
         blueprint: {
           ...s.blueprint,
           basics: {
@@ -229,7 +200,6 @@ export const useBlueprintStore = create<BlueprintStore>((set, get) => {
     // ── Technology ────────────────────────────────────────────────────
     addTechnology: (category, id) =>
       set((s) => ({
-        ...pushHistory(s),
         blueprint: {
           ...s.blueprint,
           technology: {
@@ -242,7 +212,6 @@ export const useBlueprintStore = create<BlueprintStore>((set, get) => {
 
     removeTechnology: (category, id) =>
       set((s) => ({
-        ...pushHistory(s),
         blueprint: {
           ...s.blueprint,
           technology: {
@@ -255,7 +224,6 @@ export const useBlueprintStore = create<BlueprintStore>((set, get) => {
 
     toggleTechnology: (category, id) =>
       set((s) => ({
-        ...pushHistory(s),
         blueprint: {
           ...s.blueprint,
           technology: {
@@ -269,7 +237,6 @@ export const useBlueprintStore = create<BlueprintStore>((set, get) => {
     // ── Features ──────────────────────────────────────────────────────
     toggleFeature: (featureId) =>
       set((s) => ({
-        ...pushHistory(s),
         blueprint: {
           ...s.blueprint,
           features: { selected: toggleInArray(s.blueprint.features.selected, featureId) },
@@ -280,7 +247,6 @@ export const useBlueprintStore = create<BlueprintStore>((set, get) => {
     // ── Integrations ──────────────────────────────────────────────────
     toggleIntegration: (integrationId) =>
       set((s) => ({
-        ...pushHistory(s),
         blueprint: {
           ...s.blueprint,
           integrations: {
@@ -293,7 +259,6 @@ export const useBlueprintStore = create<BlueprintStore>((set, get) => {
     // ── Quality ───────────────────────────────────────────────────────
     toggleQuality: (category, id) =>
       set((s) => ({
-        ...pushHistory(s),
         blueprint: {
           ...s.blueprint,
           quality: {
@@ -309,41 +274,13 @@ export const useBlueprintStore = create<BlueprintStore>((set, get) => {
       const fresh = createEmptyBlueprint();
       set({
         blueprint: fresh,
-        history: [{ blueprint: JSON.parse(JSON.stringify(fresh)), timestamp: Date.now() }],
-        historyIndex: 0,
       });
     },
 
     loadBlueprint: (blueprint) =>
       set({
         blueprint,
-        history: [{ blueprint: JSON.parse(JSON.stringify(blueprint)), timestamp: Date.now() }],
-        historyIndex: 0,
       }),
-
-    // ── Undo/Redo ─────────────────────────────────────────────────────
-    undo: () =>
-      set((s) => {
-        if (s.historyIndex <= 0) return s;
-        const newIndex = s.historyIndex - 1;
-        return {
-          historyIndex: newIndex,
-          blueprint: JSON.parse(JSON.stringify(s.history[newIndex].blueprint)),
-        };
-      }),
-
-    redo: () =>
-      set((s) => {
-        if (s.historyIndex >= s.history.length - 1) return s;
-        const newIndex = s.historyIndex + 1;
-        return {
-          historyIndex: newIndex,
-          blueprint: JSON.parse(JSON.stringify(s.history[newIndex].blueprint)),
-        };
-      }),
-
-    canUndo: () => get().historyIndex > 0,
-    canRedo: () => get().historyIndex < get().history.length - 1,
 
     // ── Computed ──────────────────────────────────────────────────────
     getCompletionPercentage: () => {

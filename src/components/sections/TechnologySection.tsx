@@ -4,8 +4,8 @@ import { useMemo } from 'react';
 import { useBlueprintStore } from '@/stores/blueprintStore';
 import { Blueprint } from '@/types/blueprint';
 import { technologyCategories } from '@/data/options/technologies';
-import { getRecommendationMap } from '@/lib/recommendationEngine';
-import { getRelevantTechCategoryIds } from '@/lib/questionEngine';
+import { getRecommendationMap } from '@/lib/recommendation';
+import { getRelevantTechCategoryIds } from '@/lib/question';
 import OptionCard from '@/components/questions/OptionCard';
 
 export default function TechnologySection() {
