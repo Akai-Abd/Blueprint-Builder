@@ -9,6 +9,7 @@ import {
   type SavedBlueprint,
 } from '@/lib/autoSave';
 import { createEmptyBlueprint } from '@/types/blueprint';
+import { BLUEPRINT_PRESETS, type BlueprintPreset } from '@/data/presets';
 import { saveBlueprint, setCurrentBlueprintId } from '@/lib/autoSave';
 import { getOverallProgress } from '@/lib/progress';
 import { importFromJSON } from '@/lib/export';
@@ -56,6 +57,16 @@ export default function DashboardPage() {
     setCurrentBlueprintId(bp.id);
     router.push(`/builder?id=${bp.id}`);
   }, [router]);
+
+  const handleCreateFromPreset = useCallback(
+    (preset: BlueprintPreset) => {
+      const bp = preset.build();
+      saveBlueprint(bp);
+      setCurrentBlueprintId(bp.id);
+      router.push(`/builder?id=${bp.id}`);
+    },
+    [router],
+  );
 
   const handleEdit = useCallback(
     (id: string) => {
@@ -188,6 +199,25 @@ export default function DashboardPage() {
           <button className="btn btn--primary" onClick={handleCreate} aria-label="Create new blueprint">
             ＋ New Blueprint
           </button>
+        </div>
+      </div>
+
+      {/* Starter Presets */}
+      <div className="dashboard__presets" aria-label="Start from a starter template">
+        <span className="dashboard__presets-label">Quick Start:</span>
+        <div className="dashboard__presets-list">
+          {BLUEPRINT_PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              className="dashboard__preset-pill"
+              onClick={() => handleCreateFromPreset(preset)}
+              title={preset.tagline}
+            >
+              <span>{preset.icon}</span>
+              <span>{preset.label}</span>
+            </button>
+          ))}
         </div>
       </div>
 

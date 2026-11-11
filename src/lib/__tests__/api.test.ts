@@ -131,6 +131,24 @@ describe('AI Provider & API Routes', () => {
 
     expect(okRes.status).toBe(200);
     await expect(okRes.json()).resolves.toEqual({ text: '# PRD\n\nContent' });
+
+    mockGenerateText.mockResolvedValueOnce({ text: '# Refined PRD' });
+
+    const refinedRes = await generatePOST(
+      makeJsonRequest('http://localhost/api/generate', {
+        blueprint: bp,
+        documentTitle: 'PRD',
+        refinement: 'Add Stripe webhook retry requirements',
+        existingContent: '# Old PRD draft',
+        provider: 'google',
+        apiKey: 'gk-user-key',
+      }),
+    );
+
+    expect(refinedRes.status).toBe(200);
+    const callArg = mockGenerateText.mock.calls[1][0];
+    expect(callArg.prompt).toContain('Add Stripe webhook retry requirements');
+    expect(callArg.prompt).toContain('# Old PRD draft');
   });
 });
 

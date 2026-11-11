@@ -4,16 +4,33 @@ import { useState, useMemo } from 'react';
 import { useBlueprintStore } from '@/stores/blueprintStore';
 import { getFilteredFeatures } from '@/lib/question';
 import OptionCard from '@/components/questions/OptionCard';
+import SectionFilterBar, { filterSectionOptions } from '@/components/questions/SectionFilterBar';
 
 export default function FeaturesSection() {
   const blueprint = useBlueprintStore((s) => s.blueprint);
   const selectedFeatures = blueprint.features.selected;
   const toggleFeature = useBlueprintStore((s) => s.toggleFeature);
   const [showOther, setShowOther] = useState(false);
+  const [query, setQuery] = useState('');
+  const [selectedOnly, setSelectedOnly] = useState(false);
 
   const { recommended, other } = useMemo(
     () => getFilteredFeatures(blueprint),
     [blueprint],
+  );
+
+  const hasFilter = query.trim().length > 0 || selectedOnly;
+  const filteredRecommended = useMemo(
+    () => filterSectionOptions(recommended, query, selectedOnly, selectedFeatures),
+    [recommended, query, selectedOnly, selectedFeatures],
+  );
+  const filteredOther = useMemo(
+    () => filterSectionOptions(other, query, selectedOnly, selectedFeatures),
+    [other, query, selectedOnly, selectedFeatures],
+  );
+  const filteredAll = useMemo(
+    () => [...filteredRecommended, ...filteredOther],
+    [filteredRecommended, filteredOther],
   );
 
   const hasProjectType = !!blueprint.basics.projectType;
@@ -31,43 +48,25 @@ export default function FeaturesSection() {
         </p>
       </div>
 
-      {/* Recommended features */}
-      <div className="section__group">
-        <h3 className="section__group-title">
-          <span className="section__group-icon">✨</span>
-          {hasProjectType ? 'Recommended Features' : 'Available Features'}
-          <span className="section__group-count">{selectedFeatures.length} selected</span>
-        </h3>
-        <div className="option-grid">
-          {recommended.map((option) => (
-            <OptionCard
-              key={option.id}
-              option={option}
-              selected={selectedFeatures.includes(option.id)}
-              onToggle={toggleFeature}
-            />
-          ))}
-        </div>
-      </div>
+      <SectionFilterBar
+        query={query}
+        onQueryChange={setQuery}
+        selectedOnly={selectedOnly}
+        onSelectedOnlyChange={setSelectedOnly}
+        placeholder="Search features (e.g., Auth, Billing, Search)…"
+        selectedCount={selectedFeatures.length}
+      />
 
-      {/* Other features (collapsible) */}
-      {other.length > 0 && (
-        <div className="section__group">
-          <button
-            className="section__group-toggle"
-            onClick={() => setShowOther((prev) => !prev)}
-            aria-expanded={showOther}
-          >
+      {hasFilter ? (
+        filteredAll.length > 0 ? (
+          <div className="section__group">
             <h3 className="section__group-title">
-              <span className="section__group-icon">📦</span>
-              Other Features
-              <span className="section__group-count">{other.length} available</span>
+              <span className="section__group-icon">✨</span>
+              Matching Features
+              <span className="section__group-count">{filteredAll.length} shown</span>
             </h3>
-            <span className="section__group-chevron">{showOther ? '▾' : '▸'}</span>
-          </button>
-          {showOther && (
             <div className="option-grid">
-              {other.map((option) => (
+              {filteredAll.map((option) => (
                 <OptionCard
                   key={option.id}
                   option={option}
@@ -76,8 +75,63 @@ export default function FeaturesSection() {
                 />
               ))}
             </div>
+          </div>
+        ) : (
+          <div className="section-filter-empty">
+            No matching features found.
+          </div>
+        )
+      ) : (
+        <>
+          {/* Recommended features */}
+          <div className="section__group">
+            <h3 className="section__group-title">
+              <span className="section__group-icon">✨</span>
+              {hasProjectType ? 'Recommended Features' : 'Available Features'}
+              <span className="section__group-count">{selectedFeatures.length} selected</span>
+            </h3>
+            <div className="option-grid">
+              {recommended.map((option) => (
+                <OptionCard
+                  key={option.id}
+                  option={option}
+                  selected={selectedFeatures.includes(option.id)}
+                  onToggle={toggleFeature}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Other features (collapsible) */}
+          {other.length > 0 && (
+            <div className="section__group">
+              <button
+                className="section__group-toggle"
+                onClick={() => setShowOther((prev) => !prev)}
+                aria-expanded={showOther}
+              >
+                <h3 className="section__group-title">
+                  <span className="section__group-icon">📦</span>
+                  Other Features
+                  <span className="section__group-count">{other.length} available</span>
+                </h3>
+                <span className="section__group-chevron">{showOther ? '▾' : '▸'}</span>
+              </button>
+              {showOther && (
+                <div className="option-grid">
+                  {other.map((option) => (
+                    <OptionCard
+                      key={option.id}
+                      option={option}
+                      selected={selectedFeatures.includes(option.id)}
+                      onToggle={toggleFeature}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );

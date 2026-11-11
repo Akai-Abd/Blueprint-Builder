@@ -93,6 +93,38 @@ const COMPATIBILITY_RULES: CompatibilityRule[] = [
       reason: 'Supabase Auth is backed by PostgreSQL natively on the Supabase platform.',
     },
   },
+  {
+    if: { category: 'mobile', id: 'react-native' },
+    recommend: {
+      category: 'monitoring',
+      ids: ['sentry'],
+      reason: 'Sentry provides first-class crash reporting and source maps for React Native.',
+    },
+  },
+  {
+    if: { category: 'mobile', id: 'flutter' },
+    recommend: {
+      category: 'authentication',
+      ids: ['firebase-auth', 'supabase-auth'],
+      reason: 'Firebase Auth and Supabase Auth offer official Flutter SDKs for quick mobile auth.',
+    },
+  },
+  {
+    if: { category: 'desktop', id: 'tauri' },
+    recommend: {
+      category: 'database',
+      ids: ['sqlite'],
+      reason: 'SQLite pairs cleanly with Tauri for fast local-first offline desktop storage.',
+    },
+  },
+  {
+    if: { category: 'desktop', id: 'electron' },
+    recommend: {
+      category: 'frontend',
+      ids: ['react', 'vue'],
+      reason: 'Electron renders Chromium web views natively using frameworks like React or Vue.',
+    },
+  },
 ];
 
 // ─── Missing Feature Rules ──────────────────────────────────────────

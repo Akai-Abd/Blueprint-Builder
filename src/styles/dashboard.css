@@ -57,6 +57,56 @@
   margin-top: 2px;
 }
 
+/* ─── Starter Presets Bar ─────────────────────────────────────────────── */
+.dashboard__presets {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--border-radius-md);
+}
+
+.dashboard__presets-label {
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-right: var(--space-xs);
+}
+
+.dashboard__presets-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.dashboard__preset-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dashboard__preset-pill:hover {
+  border-color: var(--color-primary);
+  color: var(--text-primary);
+  background: rgba(99, 102, 241, 0.14);
+}
+
 /* ─── Search / Filter Bar ─────────────────────────────────────────────── */
 .dashboard__toolbar {
   display: flex;

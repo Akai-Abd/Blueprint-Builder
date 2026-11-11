@@ -4,18 +4,26 @@ import { useState, useMemo, useCallback } from 'react';
 import { useBlueprintStore } from '@/stores/blueprintStore';
 import {
   documentTypes,
+  generateSingleDocument,
+  type DocumentType,
   type GeneratedDocument,
 } from '@/lib/generation';
 import { exportAsZIP } from '@/lib/export';
 import {
-  LLM_PROVIDERS,
-  MODELS_BY_PROVIDER,
-  type LLMProvider,
-} from '@/lib/aiModels';
+  hasConfiguredApiKey,
+  type AISettings,
+} from '@/lib/aiSettings';
+import AISettingsControl, {
+  AIModeBadge,
+  useAISettings,
+} from '@/components/AISettingsControl';
+import type { Blueprint } from '@/types/blueprint';
 
 interface GenerationScreenProps {
   onBack: () => void;
   onExport?: (docs: GeneratedDocument[]) => void;
+  initialDocs?: GeneratedDocument[];
+  onDocsChange?: (docs: GeneratedDocument[]) => void;
 }
 
 type GenerationState = 'select' | 'generating' | 'preview';
@@ -23,69 +31,117 @@ type DocProgressStatus = 'pending' | 'active' | 'done';
 
 const GENERATION_CONCURRENCY = 3;
 
-function readInitialProvider(): LLMProvider {
-  if (typeof window === 'undefined') return 'google';
-  const saved = localStorage.getItem('blueprint_llm_provider');
-  return saved && (LLM_PROVIDERS as readonly string[]).includes(saved)
-    ? (saved as LLMProvider)
-    : 'google';
+interface DocRequestResult {
+  doc: GeneratedDocument;
+  fellBack: boolean;
+  fallbackReason?: string;
+  shouldSkipNetwork?: boolean;
 }
 
-function readInitialModelId(provider: LLMProvider): string {
-  if (typeof window === 'undefined') return MODELS_BY_PROVIDER[provider][0].id;
-  return localStorage.getItem(`blueprint_${provider}_model`) || MODELS_BY_PROVIDER[provider][0].id;
-}
+async function generateOneDocument(params: {
+  blueprint: Blueprint;
+  docType: DocumentType;
+  aiSettings: AISettings;
+  skipNetwork?: boolean;
+  refinement?: string;
+  existingContent?: string;
+}): Promise<DocRequestResult> {
+  const { blueprint, docType, aiSettings, skipNetwork, refinement, existingContent } = params;
+  const fallbackDoc =
+    generateSingleDocument(blueprint, docType.id) ?? {
+      id: docType.id,
+      title: docType.title,
+      icon: docType.icon,
+      description: docType.description,
+      content: docType.generate(blueprint),
+    };
 
-function readInitialApiKeys(): Record<LLMProvider, string> {
-  if (typeof window === 'undefined') {
-    return { google: '', openai: '', anthropic: '', mistral: '', groq: '', cohere: '' };
+  if (skipNetwork) {
+    return { doc: fallbackDoc, fellBack: false };
   }
-  return {
-    google: localStorage.getItem('blueprint_google_api_key') || '',
-    openai: localStorage.getItem('blueprint_openai_api_key') || '',
-    anthropic: localStorage.getItem('blueprint_anthropic_api_key') || '',
-    mistral: localStorage.getItem('blueprint_mistral_api_key') || '',
-    groq: localStorage.getItem('blueprint_groq_api_key') || '',
-    cohere: localStorage.getItem('blueprint_cohere_api_key') || '',
-  };
+
+  const activeApiKey = aiSettings.apiKey.trim() || undefined;
+
+  try {
+    const res = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        blueprint,
+        documentTitle: docType.title,
+        documentDescription: docType.description,
+        refinement: refinement?.trim() || undefined,
+        existingContent,
+        apiKey: activeApiKey,
+        provider: aiSettings.provider,
+        modelId: aiSettings.modelId,
+      }),
+    });
+
+    if (res.status === 401 && !activeApiKey) {
+      // Expected unauthenticated local fallback when no client key is configured
+      return { doc: fallbackDoc, fellBack: false, shouldSkipNetwork: true };
+    }
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || `API returned HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    return {
+      doc: {
+        id: docType.id,
+        title: docType.title,
+        icon: docType.icon,
+        description: docType.description,
+        content: data.text,
+      },
+      fellBack: false,
+    };
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : 'Request failed';
+    console.error(
+      `Failed to generate ${docType.title} via LLM, falling back to static generator:`,
+      err,
+    );
+    return {
+      doc: fallbackDoc,
+      fellBack: true,
+      fallbackReason: reason,
+    };
+  }
 }
 
-export default function GenerationScreen({ onBack, onExport }: GenerationScreenProps) {
+export default function GenerationScreen({
+  onBack,
+  onExport,
+  initialDocs = [],
+  onDocsChange,
+}: GenerationScreenProps) {
   const blueprint = useBlueprintStore((s) => s.blueprint);
   const markComplete = useBlueprintStore((s) => s.markComplete);
+  const aiSettings = useAISettings();
+  const isLiveMode = hasConfiguredApiKey(aiSettings);
 
-  const [selectedDocs, setSelectedDocs] = useState<string[]>(
-    () => documentTypes.map((d) => d.id),
+  const [selectedDocs, setSelectedDocs] = useState<string[]>(() =>
+    initialDocs.length > 0
+      ? initialDocs.map((d) => d.id)
+      : documentTypes.map((d) => d.id),
   );
-  const [state, setState] = useState<GenerationState>('select');
-  const [generatedDocs, setGeneratedDocs] = useState<GeneratedDocument[]>([]);
-  const [activeDocId, setActiveDocId] = useState<string | null>(null);
+  const [state, setState] = useState<GenerationState>(
+    () => (initialDocs.length > 0 ? 'preview' : 'select'),
+  );
+  const [generatedDocs, setGeneratedDocs] = useState<GeneratedDocument[]>(initialDocs);
+  const [activeDocId, setActiveDocId] = useState<string | null>(
+    () => initialDocs[0]?.id ?? null,
+  );
   const [docStatuses, setDocStatuses] = useState<DocProgressStatus[]>([]);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
-  const [provider, setProvider] = useState<LLMProvider>(readInitialProvider);
-  const [modelId, setModelId] = useState<string>(() => readInitialModelId(readInitialProvider()));
-  const [apiKeys, setApiKeys] = useState<Record<LLMProvider, string>>(readInitialApiKeys);
-
-  const handleProviderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value as LLMProvider;
-    setProvider(val);
-    localStorage.setItem('blueprint_llm_provider', val);
-
-    const savedModel = localStorage.getItem(`blueprint_${val}_model`);
-    setModelId(savedModel || MODELS_BY_PROVIDER[val][0].id);
-  };
-
-  const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    setModelId(val);
-    localStorage.setItem(`blueprint_${provider}_model`, val);
-  };
-
-  const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setApiKeys((prev) => ({ ...prev, [provider]: val }));
-    localStorage.setItem(`blueprint_${provider}_api_key`, val);
-  };
+  const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [refinement, setRefinement] = useState('');
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
 
   const toggleDoc = useCallback((id: string) => {
     setSelectedDocs((prev) =>
@@ -104,85 +160,51 @@ export default function GenerationScreen({ onBack, onExport }: GenerationScreenP
   const handleGenerate = useCallback(async () => {
     const docsToGenerate = selectedDocs
       .map((id) => documentTypes.find((d) => d.id === id))
-      .filter((d): d is (typeof documentTypes)[number] => d !== undefined);
+      .filter((d): d is DocumentType => d !== undefined);
 
     if (docsToGenerate.length === 0) return;
 
     setState('generating');
+    setFallbackNotice(null);
+    setIsEditing(false);
     setDocStatuses(docsToGenerate.map((_, idx) => (idx === 0 ? 'active' : 'pending')));
 
     const results: GeneratedDocument[] = new Array(docsToGenerate.length);
-    const activeApiKey = apiKeys[provider].trim() || undefined;
-    let skipNetwork = false;
+    const activeApiKey = aiSettings.apiKey.trim() || undefined;
+    let skipNetwork = !activeApiKey;
+    let fallbackCount = 0;
+    let firstReason: string | undefined;
 
-    const generateOne = async (index: number) => {
-      const doc = docsToGenerate[index];
+    const runOne = async (index: number) => {
+      const docType = docsToGenerate[index];
       setDocStatuses((prev) => prev.map((s, idx) => (idx === index ? 'active' : s)));
 
-      if (skipNetwork) {
-        results[index] = {
-          id: doc.id,
-          title: doc.title,
-          icon: doc.icon,
-          description: doc.description,
-          content: doc.generate(blueprint),
-        };
-        setDocStatuses((prev) => prev.map((s, idx) => (idx === index ? 'done' : s)));
-        return;
+      const outcome = await generateOneDocument({
+        blueprint,
+        docType,
+        aiSettings,
+        skipNetwork,
+      });
+
+      if (outcome.shouldSkipNetwork) {
+        skipNetwork = true;
+      }
+      if (outcome.fellBack) {
+        fallbackCount += 1;
+        if (!firstReason && outcome.fallbackReason) {
+          firstReason = outcome.fallbackReason;
+        }
       }
 
-      try {
-        const res = await fetch('/api/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            blueprint,
-            documentTitle: doc.title,
-            documentDescription: doc.description,
-            apiKey: activeApiKey,
-            provider,
-            modelId,
-          }),
-        });
-
-        if (res.status === 401 && !activeApiKey) {
-          skipNetwork = true;
-        }
-
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || `API returned ${res.status}`);
-        }
-
-        const data = await res.json();
-        results[index] = {
-          id: doc.id,
-          title: doc.title,
-          icon: doc.icon,
-          description: doc.description,
-          content: data.text,
-        };
-      } catch (err) {
-        console.error(
-          `Failed to generate ${doc.title} via LLM, falling back to static generator:`,
-          err,
-        );
-        results[index] = {
-          id: doc.id,
-          title: doc.title,
-          icon: doc.icon,
-          description: doc.description,
-          content: doc.generate(blueprint),
-        };
-      }
-
+      results[index] = outcome.doc;
       setDocStatuses((prev) => prev.map((s, idx) => (idx === index ? 'done' : s)));
     };
 
-    // Probe first item when no client key is set so 401 skips unnecessary extra requests
+    // Run first item first when no key is set so unauthenticated 401 probe skips remaining requests
     let startIndex = 0;
     if (!activeApiKey) {
-      await generateOne(0);
+      skipNetwork = false;
+      await runOne(0);
       startIndex = 1;
     }
 
@@ -191,21 +213,75 @@ export default function GenerationScreen({ onBack, onExport }: GenerationScreenP
     const workers = Array.from({ length: Math.max(workerCount, 0) }, async () => {
       while (cursor < docsToGenerate.length) {
         const idx = cursor++;
-        await generateOne(idx);
+        await runOne(idx);
       }
     });
     await Promise.all(workers);
 
+    if (fallbackCount > 0) {
+      setFallbackNotice(
+        `Live AI failed for ${fallbackCount} document${fallbackCount !== 1 ? 's' : ''}${
+          firstReason ? ` (${firstReason})` : ''
+        } — offline templates were used instead.`,
+      );
+    }
+
     markComplete();
     setGeneratedDocs(results);
+    onDocsChange?.(results);
     setActiveDocId(results[0]?.id ?? null);
     setState('preview');
-  }, [selectedDocs, blueprint, apiKeys, provider, modelId, markComplete]);
+  }, [selectedDocs, blueprint, aiSettings, markComplete, onDocsChange]);
 
   const activeDoc = useMemo(
     () => generatedDocs.find((d) => d.id === activeDocId) ?? null,
     [generatedDocs, activeDocId],
   );
+
+  const handleEditDocContent = useCallback(
+    (docId: string, content: string) => {
+      const nextDocs = generatedDocs.map((d) =>
+        d.id === docId ? { ...d, content } : d,
+      );
+      setGeneratedDocs(nextDocs);
+      onDocsChange?.(nextDocs);
+    },
+    [generatedDocs, onDocsChange],
+  );
+
+  const handleRegenerateDoc = useCallback(async () => {
+    if (!activeDoc || regeneratingId) return;
+    const docType = documentTypes.find((d) => d.id === activeDoc.id);
+    if (!docType) return;
+
+    setRegeneratingId(activeDoc.id);
+    const outcome = await generateOneDocument({
+      blueprint,
+      docType,
+      aiSettings,
+      skipNetwork: !hasConfiguredApiKey(aiSettings),
+      refinement,
+      existingContent: refinement.trim() ? activeDoc.content : undefined,
+    });
+
+    if (outcome.fellBack) {
+      setFallbackNotice(
+        `Live AI failed regenerating ${docType.title}${
+          outcome.fallbackReason ? ` (${outcome.fallbackReason})` : ''
+        } — offline template used instead.`,
+      );
+    } else if (hasConfiguredApiKey(aiSettings)) {
+      setFallbackNotice(null);
+    }
+
+    const nextDocs = generatedDocs.map((d) =>
+      d.id === activeDoc.id ? outcome.doc : d,
+    );
+    setGeneratedDocs(nextDocs);
+    onDocsChange?.(nextDocs);
+    setRefinement('');
+    setRegeneratingId(null);
+  }, [activeDoc, regeneratingId, blueprint, aiSettings, refinement, generatedDocs, onDocsChange]);
 
   const handleCopy = useCallback(async () => {
     if (!activeDoc) return;
@@ -245,76 +321,31 @@ export default function GenerationScreen({ onBack, onExport }: GenerationScreenP
             <p className="generation-screen__subtitle">
               Select which documents to generate from your blueprint.
             </p>
+            <div style={{ marginTop: '8px' }}>
+              <AIModeBadge settings={aiSettings} />
+            </div>
           </div>
           <div className="generation-screen__actions">
             <button className="btn btn--ghost" onClick={onBack}>← Back to Review</button>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
-              <div style={{ display: 'flex', gap: '8px', width: '250px' }}>
-                <select
-                  value={provider}
-                  onChange={handleProviderChange}
-                  aria-label="LLM provider"
-                  style={{
-                    padding: '8px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-subtle)',
-                    background: 'var(--bg-card)',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.875rem',
-                    flex: 1,
-                  }}
+            <div className="generation-ai-box">
+              <AISettingsControl settings={aiSettings} />
+              <div className="generation-ai-box__buttons">
+                {generatedDocs.length > 0 && (
+                  <button
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => setState('preview')}
+                  >
+                    View Saved Docs ({generatedDocs.length})
+                  </button>
+                )}
+                <button
+                  className="btn btn--primary"
+                  onClick={handleGenerate}
+                  disabled={selectedDocs.length === 0}
                 >
-                  <option value="google">Google (Gemini)</option>
-                  <option value="openai">OpenAI</option>
-                  <option value="anthropic">Anthropic</option>
-                  <option value="mistral">Mistral</option>
-                  <option value="groq">Groq</option>
-                  <option value="cohere">Cohere</option>
-                </select>
+                  🚀 {isLiveMode ? 'Generate with AI' : 'Generate Templates'} ({selectedDocs.length})
+                </button>
               </div>
-              <div style={{ display: 'flex', gap: '8px', width: '250px' }}>
-                <select
-                  value={modelId}
-                  onChange={handleModelChange}
-                  aria-label="LLM model"
-                  style={{
-                    padding: '8px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-subtle)',
-                    background: 'var(--bg-card)',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.875rem',
-                    flex: 1,
-                  }}
-                >
-                  {MODELS_BY_PROVIDER[provider].map((m) => (
-                    <option key={m.id} value={m.id}>{m.label}</option>
-                  ))}
-                </select>
-              </div>
-              <input
-                type="password"
-                aria-label="Provider API Key"
-                placeholder={`Optional: ${provider.charAt(0).toUpperCase() + provider.slice(1)} API Key`}
-                value={apiKeys[provider]}
-                onChange={handleApiKeyChange}
-                style={{
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid var(--border-subtle)',
-                  background: 'var(--bg-card)',
-                  color: 'var(--text-primary)',
-                  fontSize: '0.875rem',
-                  width: '250px',
-                }}
-              />
-              <button
-                className="btn btn--primary"
-                onClick={handleGenerate}
-                disabled={selectedDocs.length === 0}
-              >
-                🚀 Generate {selectedDocs.length} Document{selectedDocs.length !== 1 ? 's' : ''}
-              </button>
             </div>
           </div>
         </div>
@@ -418,7 +449,20 @@ export default function GenerationScreen({ onBack, onExport }: GenerationScreenP
       <div className="generation-sidebar">
         <div className="generation-sidebar__header">
           <h3 className="generation-sidebar__title">📄 Documents</h3>
-          <span className="generation-sidebar__count">{generatedDocs.length}</span>
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm"
+            onClick={() => {
+              setIsEditing(false);
+              setState('select');
+            }}
+            title="Select documents or AI settings"
+          >
+            ↻ Re-run ({generatedDocs.length})
+          </button>
+        </div>
+        <div className="generation-sidebar__mode">
+          <AIModeBadge settings={aiSettings} />
         </div>
         <div className="generation-sidebar__list">
           {generatedDocs.map((doc) => (
@@ -427,7 +471,10 @@ export default function GenerationScreen({ onBack, onExport }: GenerationScreenP
               className={`generation-sidebar__item ${
                 activeDocId === doc.id ? 'generation-sidebar__item--active' : ''
               }`}
-              onClick={() => setActiveDocId(doc.id)}
+              onClick={() => {
+                setIsEditing(false);
+                setActiveDocId(doc.id);
+              }}
             >
               <span>{doc.icon}</span>
               <span>{doc.title}</span>
@@ -454,6 +501,19 @@ export default function GenerationScreen({ onBack, onExport }: GenerationScreenP
 
       {/* Preview panel */}
       <div className="generation-preview">
+        {fallbackNotice && (
+          <div className="generation-fallback-banner" role="status">
+            <span>⚠️ {fallbackNotice}</span>
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              onClick={() => setFallbackNotice(null)}
+              aria-label="Dismiss warning"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         {activeDoc ? (
           <>
             <div className="generation-preview__header">
@@ -463,18 +523,66 @@ export default function GenerationScreen({ onBack, onExport }: GenerationScreenP
               </div>
               <div className="generation-preview__actions">
                 <button
+                  type="button"
+                  className="btn btn--ghost btn--sm"
+                  onClick={() => setIsEditing((prev) => !prev)}
+                >
+                  {isEditing ? '👁️ Preview' : '✏️ Edit'}
+                </button>
+                <button
+                  type="button"
                   className="btn btn--ghost btn--sm"
                   onClick={handleCopy}
                 >
                   {copyFeedback === 'error' ? '❌ Copy failed' : copyFeedback === activeDoc.id ? '✅ Copied!' : '📋 Copy'}
                 </button>
-                <button className="btn btn--ghost btn--sm" onClick={handleDownload}>
+                <button type="button" className="btn btn--ghost btn--sm" onClick={handleDownload}>
                   ⬇ Download
                 </button>
               </div>
             </div>
+
+            <div className="generation-refine-bar">
+              <input
+                type="text"
+                className="generation-refine-bar__input"
+                aria-label="Refinement instruction"
+                placeholder={
+                  isLiveMode
+                    ? 'Refine this doc (e.g., "Focus on webhook retries & RLS")...'
+                    : 'Add an API key under Re-run to refine with AI; regenerating now uses updated blueprint template'
+                }
+                value={refinement}
+                onChange={(e) => setRefinement(e.target.value)}
+                disabled={!isLiveMode || regeneratingId === activeDoc.id}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleRegenerateDoc();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                onClick={handleRegenerateDoc}
+                disabled={regeneratingId === activeDoc.id}
+              >
+                {regeneratingId === activeDoc.id ? '⏳ Regenerating…' : '↻ Regenerate'}
+              </button>
+            </div>
+
             <div className="generation-preview__content">
-              <pre className="generation-preview__markdown">{activeDoc.content}</pre>
+              {isEditing ? (
+                <textarea
+                  className="generation-preview__editor"
+                  aria-label={`Edit ${activeDoc.title} Markdown`}
+                  value={activeDoc.content}
+                  onChange={(e) => handleEditDocContent(activeDoc.id, e.target.value)}
+                />
+              ) : (
+                <pre className="generation-preview__markdown">{activeDoc.content}</pre>
+              )}
             </div>
           </>
         ) : (

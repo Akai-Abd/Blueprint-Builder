@@ -590,7 +590,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-lg);
+  gap: var(--space-xs);
+  padding: var(--space-md) var(--space-md) var(--space-sm);
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -600,12 +601,72 @@
   color: var(--text-primary);
 }
 
-.generation-sidebar__count {
+.generation-sidebar__mode {
+  padding: var(--space-xs) var(--space-md);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.generation-ai-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-sm);
+}
+
+.generation-ai-box__buttons {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.generation-fallback-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-xl);
+  background: rgba(245, 158, 11, 0.12);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.3);
+  color: var(--color-warning-light);
   font-size: var(--text-xs);
-  padding: 2px 8px;
-  border-radius: 10px;
-  background: rgba(99, 102, 241, 0.12);
-  color: var(--color-primary-light);
+}
+
+.generation-refine-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-xl);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+
+.generation-refine-bar__input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--border-default);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+}
+
+.generation-refine-bar__input:disabled {
+  opacity: 0.6;
+}
+
+.generation-preview__editor {
+  width: 100%;
+  min-height: 100%;
+  resize: vertical;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  line-height: 1.7;
+  background: var(--bg-card);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--border-radius-lg);
+  padding: var(--space-xl);
 }
 
 .generation-sidebar__list {

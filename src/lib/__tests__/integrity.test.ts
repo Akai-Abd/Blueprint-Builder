@@ -9,6 +9,7 @@ import { allTechnologies, technologyCategories } from '@/data/options/technologi
 import { featureOptions } from '@/data/options/features';
 import { integrationOptions } from '@/data/options/integrations';
 import { qualityOptions, qualityCategories } from '@/data/options/quality';
+import { BLUEPRINT_PRESETS } from '@/data/presets';
 import { getFilteredFeatures, getFilteredIntegrations } from '@/lib/question';
 import { createEmptyBlueprint, ProjectType } from '@/types/blueprint';
 
@@ -94,6 +95,43 @@ describe('Blueprint Data & Mapping Integrity', () => {
       }
       for (const item of filteredIntegrations.recommended) {
         expect(integrationIdSet.has(item.id)).toBe(true);
+      }
+    }
+  });
+
+  it('validates that every starter preset references defined technology, feature, integration, and quality IDs', () => {
+    expect(BLUEPRINT_PRESETS.length).toBeGreaterThanOrEqual(5);
+    const integrationIdSet = new Set(integrationOptions.map((i) => i.id));
+    const featureIdSet = new Set(featureOptions.map((f) => f.id));
+
+    for (const preset of BLUEPRINT_PRESETS) {
+      const bp = preset.build();
+      expect(bp.basics.name.length).toBeGreaterThan(0);
+      expect(bp.basics.projectType).not.toBeNull();
+
+      for (const [cat, ids] of Object.entries(bp.technology)) {
+        const catDef = technologyCategories.find((c) => c.id === cat);
+        const catIds = new Set(catDef?.options.map((o) => o.id) ?? []);
+        for (const id of ids) {
+          expect(catIds.has(id)).toBe(true);
+        }
+      }
+
+      for (const id of bp.features.selected) {
+        expect(featureIdSet.has(id)).toBe(true);
+      }
+
+      for (const id of bp.integrations.selected) {
+        expect(integrationIdSet.has(id)).toBe(true);
+      }
+
+      for (const [cat, ids] of Object.entries(bp.quality)) {
+        const catIds = new Set(
+          (qualityOptions[cat as keyof typeof qualityOptions] ?? []).map((o) => o.id),
+        );
+        for (const id of ids) {
+          expect(catIds.has(id)).toBe(true);
+        }
       }
     }
   });

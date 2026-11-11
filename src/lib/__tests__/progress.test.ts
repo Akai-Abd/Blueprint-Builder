@@ -10,16 +10,41 @@ describe('Progress Calculation & Store Parity', () => {
     useBlueprintStore.getState().resetBlueprint();
   });
 
-  it('reaches 100% Technology completion when all 12 technology categories have selections', () => {
+  it('reaches 100% Technology completion when all categories have selections (projectType unset)', () => {
     const bp = createEmptyBlueprint();
     for (const cat of technologyCategories) {
       bp.technology[cat.id] = ['example-id'];
     }
 
     const techProgress = getSectionProgress(bp, BuilderSectionId.Technology);
-    expect(techProgress.totalCount).toBe(12);
-    expect(techProgress.filledCount).toBe(12);
+    expect(techProgress.totalCount).toBe(technologyCategories.length);
+    expect(techProgress.filledCount).toBe(technologyCategories.length);
     expect(techProgress.completion).toBe(100);
+  });
+
+  it('scopes Technology & Quality denominators to relevant categories for typed projects', () => {
+    const bp = createEmptyBlueprint();
+    bp.basics.projectType = ProjectType.WebApp;
+    for (const cat of technologyCategories) {
+      if (cat.id !== 'mobile' && cat.id !== 'desktop') {
+        bp.technology[cat.id] = ['example-id'];
+      }
+    }
+    const webTech = getSectionProgress(bp, BuilderSectionId.Technology);
+    expect(webTech.totalCount).toBe(technologyCategories.length - 2);
+    expect(webTech.completion).toBe(100);
+
+    const androidBp = createEmptyBlueprint();
+    androidBp.basics.projectType = ProjectType.Android;
+    androidBp.technology.mobile = ['react-native'];
+    const androidTech = getSectionProgress(androidBp, BuilderSectionId.Technology);
+    expect(androidTech.totalCount).toBe(8);
+    expect(androidTech.filledCount).toBe(1);
+
+    const cliBp = createEmptyBlueprint();
+    cliBp.basics.projectType = ProjectType.CLI;
+    const cliQuality = getSectionProgress(cliBp, BuilderSectionId.Quality);
+    expect(cliQuality.totalCount).toBe(3);
   });
 
   it('reaches 100% Quality completion when all 7 quality categories have selections', () => {
@@ -29,12 +54,12 @@ describe('Progress Calculation & Store Parity', () => {
     }
 
     const qualityProgress = getSectionProgress(bp, BuilderSectionId.Quality);
-    expect(qualityProgress.totalCount).toBe(7);
-    expect(qualityProgress.filledCount).toBe(7);
+    expect(qualityProgress.totalCount).toBe(qualityCategories.length);
+    expect(qualityProgress.filledCount).toBe(qualityCategories.length);
     expect(qualityProgress.completion).toBe(100);
   });
 
-  it('keeps store completion selectors aligned with progress helpers and marks blueprint complete', () => {
+  it('keeps store completion selectors aligned with progress helpers for scoped WebApp and marks complete', () => {
     const store = useBlueprintStore.getState();
     store.setProjectName('Full App');
     store.setProjectDescription('Complete blueprint');
@@ -45,7 +70,9 @@ describe('Progress Calculation & Store Parity', () => {
     store.setBusinessModel(BusinessModel.Subscription);
     store.toggleTargetPlatform(ProjectType.WebApp);
     for (const cat of technologyCategories) {
-      store.toggleTechnology(cat.id, `opt-${cat.id}`);
+      if (cat.id !== 'mobile' && cat.id !== 'desktop') {
+        store.toggleTechnology(cat.id, `opt-${cat.id}`);
+      }
     }
     store.toggleFeature('authentication');
     store.toggleIntegration('stripe');

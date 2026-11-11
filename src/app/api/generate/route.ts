@@ -15,6 +15,8 @@ export async function POST(req: NextRequest) {
       blueprint,
       documentTitle,
       documentDescription,
+      refinement,
+      existingContent,
       apiKey,
       provider,
       modelId,
@@ -31,6 +33,10 @@ export async function POST(req: NextRequest) {
 
     const model = resolveLanguageModel(provider, modelId, apiKey);
     const descriptionText = typeof documentDescription === 'string' ? documentDescription : '';
+    const refinementText =
+      typeof refinement === 'string' ? refinement.trim().slice(0, 1000) : '';
+    const existingExcerpt =
+      typeof existingContent === 'string' ? existingContent.trim().slice(0, 12000) : '';
 
     const instructions = `You are an expert Software Architect, Product Manager, and Technical Writer.
 Your task is to generate a highly detailed, professional project document for a user's application blueprint.
@@ -50,10 +56,16 @@ Instructions:
 4. IMPORTANT: Do NOT include markdown code block syntax (e.g. \`\`\`markdown) around your entire response. Your response should just be the raw markdown content itself.
 5. Make sure the output is comprehensive and ready for production use.`;
 
+    const prompt = refinementText
+      ? existingExcerpt
+        ? `Please regenerate the ${documentTitle} document incorporating this refinement request:\n${refinementText}\n\nExisting draft to refine/replace:\n${existingExcerpt}`
+        : `Please generate the complete ${documentTitle} document now, with special focus on this user instruction:\n${refinementText}`
+      : `Please generate the complete ${documentTitle} document now.`;
+
     const { text } = await generateText({
       model,
       instructions,
-      prompt: `Please generate the complete ${documentTitle} document now.`,
+      prompt,
       temperature: 0.2,
     });
 

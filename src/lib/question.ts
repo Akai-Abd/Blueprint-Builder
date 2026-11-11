@@ -116,15 +116,15 @@ const PROJECT_TYPE_TECH_CATEGORIES: Record<string, string[]> = {
     'storage', 'cdn', 'cache', 'queue', 'search', 'monitoring',
   ],
   [ProjectType.Android]: [
-    'backend', 'database', 'orm', 'authentication', 'hosting',
+    'mobile', 'backend', 'database', 'orm', 'authentication', 'hosting',
     'storage', 'monitoring',
   ],
   [ProjectType.iOS]: [
-    'backend', 'database', 'orm', 'authentication', 'hosting',
+    'mobile', 'backend', 'database', 'orm', 'authentication', 'hosting',
     'storage', 'monitoring',
   ],
   [ProjectType.Desktop]: [
-    'frontend', 'backend', 'database', 'orm', 'authentication', 'hosting',
+    'desktop', 'frontend', 'backend', 'database', 'orm', 'authentication',
     'storage', 'monitoring',
   ],
   [ProjectType.API]: [

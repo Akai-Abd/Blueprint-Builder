@@ -3,14 +3,21 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useBlueprintStore } from '@/stores/blueprintStore';
 import {
-  getAssistantResponse,
+  extractOptionActions,
+  getAssistantReply,
   getContextualGreeting,
+  isOptionActionSelected,
   QUICK_ACTIONS,
   type AssistantMessage,
+  type OptionAction,
   type QuickAction,
 } from '@/lib/aiAssistant';
 import { generateRecommendations } from '@/lib/recommendation';
 import { useDebouncedBlueprint } from '@/hooks/useDebouncedBlueprint';
+import AISettingsControl, {
+  AIModeBadge,
+  useAISettings,
+} from '@/components/AISettingsControl';
 
 interface AIAssistantPanelProps {
   isOpen: boolean;
@@ -19,9 +26,17 @@ interface AIAssistantPanelProps {
 
 export default function AIAssistantPanel({ isOpen, onClose }: AIAssistantPanelProps) {
   const activeSection = useBlueprintStore((s) => s.blueprint.activeSection);
+  const liveBlueprint = useBlueprintStore((s) => s.blueprint);
+  const toggleTechnology = useBlueprintStore((s) => s.toggleTechnology);
+  const toggleFeature = useBlueprintStore((s) => s.toggleFeature);
+  const toggleIntegration = useBlueprintStore((s) => s.toggleIntegration);
+  const toggleQuality = useBlueprintStore((s) => s.toggleQuality);
   const blueprint = useDebouncedBlueprint();
+  const aiSettings = useAISettings();
 
   const [prevSection, setPrevSection] = useState(activeSection);
+  const [showSettings, setShowSettings] = useState(false);
+  const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
   const [messages, setMessages] = useState<AssistantMessage[]>(() => [
     {
       id: 'initial-greeting',
@@ -100,28 +115,38 @@ export default function AIAssistantPanel({ isOpen, onClose }: AIAssistantPanelPr
 
       setInput('');
       setIsTyping(true);
+      setFallbackNotice(null);
 
       try {
-        const provider = localStorage.getItem('blueprint_llm_provider') || 'google';
-        const apiKey = localStorage.getItem(`blueprint_${provider}_api_key`) || '';
-        const modelId = localStorage.getItem(`blueprint_${provider}_model`) || undefined;
-
-        const response = await getAssistantResponse(
+        const reply = await getAssistantReply(
           text as QuickAction,
           blueprint,
           activeSection,
-          apiKey,
-          provider,
-          modelId,
+          aiSettings.apiKey,
+          aiSettings.provider,
+          aiSettings.modelId,
           history,
         );
+        if (reply.fallbackReason) {
+          setFallbackNotice(
+            `Live AI failed (${reply.fallbackReason}) — answered using local advisor.`,
+          );
+        }
+        const shouldExtractActions =
+          !isQuickAction || (text !== 'estimate-complexity' && text !== 'explain-section');
+        const suggestedActions = shouldExtractActions
+          ? extractOptionActions(reply.content).filter(
+              (action) => !isOptionActionSelected(liveBlueprint, action),
+            )
+          : [];
         setMessages((prev) => [
           ...prev,
           {
             id: `assistant-${Date.now()}`,
             role: 'assistant',
-            content: response,
+            content: reply.content,
             timestamp: Date.now(),
+            actions: suggestedActions.length > 0 ? suggestedActions : undefined,
           },
         ]);
       } catch {
@@ -138,7 +163,27 @@ export default function AIAssistantPanel({ isOpen, onClose }: AIAssistantPanelPr
         setIsTyping(false);
       }
     },
-    [blueprint, activeSection, messages],
+    [blueprint, liveBlueprint, activeSection, messages, aiSettings],
+  );
+
+  const handleToggleSuggestedAction = useCallback(
+    (action: OptionAction) => {
+      switch (action.kind) {
+        case 'technology':
+          toggleTechnology(action.category, action.id);
+          break;
+        case 'feature':
+          toggleFeature(action.id);
+          break;
+        case 'integration':
+          toggleIntegration(action.id);
+          break;
+        case 'quality':
+          toggleQuality(action.category, action.id);
+          break;
+      }
+    },
+    [toggleTechnology, toggleFeature, toggleIntegration, toggleQuality],
   );
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -164,6 +209,7 @@ export default function AIAssistantPanel({ isOpen, onClose }: AIAssistantPanelPr
             <div>
               <h3 className="ai-panel__title">AI Assistant</h3>
               <span className="ai-panel__status">
+                <AIModeBadge settings={aiSettings} />
                 {recCount > 0 && (
                   <button 
                     className="ai-panel__rec-count"
@@ -177,10 +223,41 @@ export default function AIAssistantPanel({ isOpen, onClose }: AIAssistantPanelPr
               </span>
             </div>
           </div>
-          <button className="ai-panel__close" onClick={onClose} aria-label="Close assistant">
-            ✕
-          </button>
+          <div className="ai-panel__header-actions">
+            <button
+              type="button"
+              className={`ai-panel__settings-btn ${showSettings ? 'ai-panel__settings-btn--active' : ''}`}
+              onClick={() => setShowSettings((prev) => !prev)}
+              aria-expanded={showSettings}
+              aria-label="Configure AI provider settings"
+              title="Configure AI provider & API key"
+            >
+              ⚙️
+            </button>
+            <button className="ai-panel__close" onClick={onClose} aria-label="Close assistant">
+              ✕
+            </button>
+          </div>
         </div>
+
+        {showSettings && (
+          <div className="ai-panel__settings-drawer">
+            <AISettingsControl settings={aiSettings} compact />
+          </div>
+        )}
+
+        {fallbackNotice && (
+          <div className="ai-panel__notice" role="status">
+            <span>⚠️ {fallbackNotice}</span>
+            <button
+              type="button"
+              onClick={() => setFallbackNotice(null)}
+              aria-label="Dismiss notice"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Messages */}
         <div className="ai-panel__messages">
@@ -194,6 +271,27 @@ export default function AIAssistantPanel({ isOpen, onClose }: AIAssistantPanelPr
               )}
               <div className="ai-msg__bubble">
                 <MessageContent content={msg.content} />
+                {msg.actions && msg.actions.length > 0 && (
+                  <div className="ai-msg__actions">
+                    {msg.actions.map((action) => {
+                      const added = isOptionActionSelected(liveBlueprint, action);
+                      return (
+                        <button
+                          key={`${action.kind}:${action.id}`}
+                          type="button"
+                          className={`ai-msg__action-chip ${
+                            added ? 'ai-msg__action-chip--added' : ''
+                          }`}
+                          onClick={() => handleToggleSuggestedAction(action)}
+                          title={added ? 'Click to remove from blueprint' : `Add ${action.name} to blueprint`}
+                        >
+                          <span>{added ? '✓' : '+'}</span>
+                          <span>{action.icon ? `${action.icon} ` : ''}{action.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           ))}

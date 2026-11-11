@@ -83,6 +83,7 @@ export interface Option {
 export interface ProjectBasics {
   name: string;
   description: string;
+  domainNotes?: string;
   category: string;
   industry: string;
   projectType: ProjectType | null;
@@ -182,6 +183,7 @@ export function createEmptyBlueprint(id?: string): Blueprint {
     basics: {
       name: '',
       description: '',
+      domainNotes: '',
       category: '',
       industry: '',
       projectType: null,

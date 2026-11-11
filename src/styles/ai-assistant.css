@@ -65,8 +65,143 @@
 }
 
 .ai-panel__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
   font-size: var(--text-xs);
   color: var(--text-tertiary);
+}
+
+.ai-panel__header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.ai-panel__settings-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-sm);
+  transition: all var(--transition-fast);
+}
+
+.ai-panel__settings-btn:hover,
+.ai-panel__settings-btn--active {
+  border-color: var(--color-primary);
+  color: var(--color-primary-light);
+  background: rgba(99, 102, 241, 0.14);
+}
+
+.ai-panel__settings-drawer {
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+}
+
+.ai-panel__notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-md);
+  background: rgba(245, 158, 11, 0.12);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.25);
+  color: var(--color-warning-light);
+  font-size: var(--text-xs);
+}
+
+.ai-panel__notice button {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+/* ─── Shared AI Mode & Settings Control ───────────────────────────────── */
+.ai-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.01em;
+}
+
+.ai-mode-badge--live {
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: var(--color-success-light);
+}
+
+.ai-mode-badge--offline {
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+}
+
+.ai-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  width: 280px;
+  max-width: 100%;
+}
+
+.ai-settings--compact {
+  width: 100%;
+}
+
+.ai-settings__row,
+.ai-settings__key-row {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.ai-settings__select,
+.ai-settings__input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--border-default);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+  font-family: var(--font-sans);
+}
+
+.ai-settings__select:focus,
+.ai-settings__input:focus {
+  outline: none;
+  border-color: var(--border-focus);
+}
+
+.ai-settings__clear {
+  padding: 0 10px;
+  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--text-xs);
+}
+
+.ai-settings__clear:hover {
+  color: var(--color-error-light);
+  border-color: var(--color-error);
 }
 
 .ai-panel__rec-count {
@@ -449,6 +584,44 @@
   box-shadow: 0 0 8px var(--color-primary-glow);
 }
 
+/* ─── Actionable Recommendation Pills ─────────────────────────────────── */
+.ai-msg__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: var(--space-sm);
+  padding-top: var(--space-xs);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.ai-msg__action-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--color-primary-light);
+  font-size: 11px;
+  font-weight: var(--font-semibold);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.ai-msg__action-chip:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.25);
+  border-color: var(--color-primary);
+}
+
+.ai-msg__action-chip--added {
+  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.14);
+  color: var(--color-success-light);
+  cursor: default;
+}
+
 /* ─── Recommendation Badge (on Option Cards) ──────────────────────────── */
 .rec-badge {
   position: relative;
@@ -458,11 +631,13 @@
   padding: 2px 8px;
   font-size: var(--text-xs);
   font-weight: var(--font-semibold);
+  font-family: var(--font-sans);
+  text-align: left;
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(6, 182, 212, 0.1));
   border: 1px solid rgba(99, 102, 241, 0.25);
   border-radius: 6px;
   color: var(--color-primary-light);
-  cursor: help;
+  cursor: pointer;
   animation: fadeIn 400ms ease both;
 }
 
@@ -476,6 +651,7 @@
 
 /* ─── Recommendation Tooltip ──────────────────────────────────────────── */
 .rec-badge__tooltip {
+  display: block;
   position: absolute;
   bottom: calc(100% + 8px);
   left: 50%;
@@ -491,6 +667,7 @@
 }
 
 .rec-badge__tooltip-arrow {
+  display: block;
   position: absolute;
   bottom: -5px;
   left: 50%;
@@ -503,6 +680,7 @@
 }
 
 .rec-badge__tooltip-text {
+  display: block;
   font-size: var(--text-xs);
   color: var(--text-secondary);
   line-height: 1.5;
@@ -519,6 +697,7 @@
 }
 
 .rec-badge__score-bar {
+  display: block;
   flex: 1;
   height: 4px;
   background: var(--bg-elevated);
@@ -527,6 +706,7 @@
 }
 
 .rec-badge__score-fill {
+  display: block;
   height: 100%;
   background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
   border-radius: 2px;

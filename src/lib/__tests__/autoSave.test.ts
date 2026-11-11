@@ -3,13 +3,16 @@ import {
   debouncedSave,
   flushPendingSave,
   getBlueprint,
+  getGeneratedDocs,
   duplicateBlueprint,
   deleteBlueprint,
   getCurrentBlueprintId,
   saveBlueprint,
+  saveGeneratedDocs,
   setAutoSaveCallbacks,
 } from '@/lib/autoSave';
 import { createEmptyBlueprint } from '@/types/blueprint';
+import type { GeneratedDocument } from '@/lib/generation';
 
 describe('Auto-Save & Persistence', () => {
   beforeEach(() => {
@@ -57,6 +60,34 @@ describe('Auto-Save & Persistence', () => {
 
     deleteBlueprint(bp.id);
     expect(getBlueprint(bp.id)).toBeNull();
+  });
+
+  it('persists, clones on duplicate, and removes generated docs on delete', () => {
+    const bp = createEmptyBlueprint();
+    bp.basics.name = 'Doc Persistence';
+    saveBlueprint(bp);
+
+    const docs: GeneratedDocument[] = [
+      {
+        id: 'prd',
+        title: 'Product Requirements (PRD)',
+        icon: '📋',
+        description: 'PRD desc',
+        content: '# Edited PRD\n\nCustom user edits',
+      },
+    ];
+
+    saveGeneratedDocs(bp.id, docs);
+    expect(getGeneratedDocs(bp.id)).toHaveLength(1);
+    expect(getGeneratedDocs(bp.id)[0].content).toContain('Custom user edits');
+
+    const copy = duplicateBlueprint(bp.id);
+    expect(copy).not.toBeNull();
+    expect(getGeneratedDocs(copy!.id)).toEqual(docs);
+
+    deleteBlueprint(bp.id);
+    expect(getGeneratedDocs(bp.id)).toEqual([]);
+    expect(getGeneratedDocs(copy!.id)).toEqual(docs);
   });
 });
 

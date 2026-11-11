@@ -36,7 +36,7 @@ const FORMAT_INFO: {
   { id: 'json', label: 'JSON', icon: '📦', desc: 'Raw blueprint data — import later or integrate with tools' },
   { id: 'markdown', label: 'Markdown', icon: '📝', desc: 'All generated documents in a single .md file' },
   { id: 'pdf', label: 'PDF', icon: '📄', desc: 'Print-ready formatted document for sharing' },
-  { id: 'zip', label: 'ZIP Archive', icon: '🗂️', desc: 'Bundled .md files + blueprint.json in one download' },
+  { id: 'zip', label: 'ZIP Archive', icon: '🗂️', desc: 'Repo-ready bundle: README.md, AGENTS.md, .env.example, docs/*.md & blueprint.json' },
   { id: 'share', label: 'Share Link', icon: '🔗', desc: 'Shareable URL — anyone with the link can import your blueprint' },
 ];
 

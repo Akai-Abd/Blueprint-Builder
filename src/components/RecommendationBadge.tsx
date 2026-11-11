@@ -11,30 +11,47 @@ export default function RecommendationBadge({ recommendation }: RecommendationBa
   const [showTooltip, setShowTooltip] = useState(false);
 
   return (
-    <div
+    <button
+      type="button"
       className="rec-badge"
+      aria-expanded={showTooltip}
+      aria-label={`Recommended (${Math.round(recommendation.score)}% match): ${recommendation.reason}`}
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
+      onFocus={() => setShowTooltip(true)}
+      onBlur={() => setShowTooltip(false)}
+      onClick={(e) => {
+        e.stopPropagation();
+        setShowTooltip((prev) => !prev);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          setShowTooltip(false);
+        } else if (e.key === 'Enter' || e.key === ' ') {
+          e.stopPropagation();
+        }
+      }}
     >
       <span className="rec-badge__icon">⭐</span>
       <span className="rec-badge__text">Recommended</span>
 
       {showTooltip && (
-        <div className="rec-badge__tooltip">
-          <div className="rec-badge__tooltip-arrow" />
-          <p className="rec-badge__tooltip-text">{recommendation.reason}</p>
-          <div className="rec-badge__tooltip-score">
+        <span className="rec-badge__tooltip" role="tooltip">
+          <span className="rec-badge__tooltip-arrow" />
+          <span className="rec-badge__tooltip-text">{recommendation.reason}</span>
+          <span className="rec-badge__tooltip-score">
             <span>Match score</span>
-            <div className="rec-badge__score-bar">
-              <div
+            <span className="rec-badge__score-bar">
+              <span
                 className="rec-badge__score-fill"
                 style={{ width: `${Math.min(recommendation.score, 100)}%` }}
               />
-            </div>
+            </span>
             <span>{Math.round(recommendation.score)}%</span>
-          </div>
-        </div>
+          </span>
+        </span>
       )}
-    </div>
+    </button>
   );
 }

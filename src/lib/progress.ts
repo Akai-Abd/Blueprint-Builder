@@ -5,6 +5,10 @@ import {
 } from '@/types/blueprint';
 import { technologyCategories } from '@/data/options/technologies';
 import { qualityCategories } from '@/data/options/quality';
+import {
+  getRelevantQualityCategoryIds,
+  getRelevantTechCategoryIds,
+} from '@/lib/question';
 
 // ─── Section Progress ────────────────────────────────────────────────
 
@@ -56,8 +60,12 @@ export function getSectionProgress(
       break;
 
     case BuilderSectionId.Technology: {
-      total = technologyCategories.length;
-      filled = technologyCategories.filter(
+      const relevantTechIds = getRelevantTechCategoryIds(blueprint);
+      const targetCats = relevantTechIds
+        ? technologyCategories.filter((cat) => relevantTechIds.includes(cat.id))
+        : technologyCategories;
+      total = targetCats.length;
+      filled = targetCats.filter(
         (cat) => (blueprint.technology[cat.id]?.length ?? 0) > 0
       ).length;
       break;
@@ -73,8 +81,12 @@ export function getSectionProgress(
       break;
 
     case BuilderSectionId.Quality: {
-      total = qualityCategories.length;
-      filled = qualityCategories.filter(
+      const relevantQualityIds = getRelevantQualityCategoryIds(blueprint);
+      const targetCats = relevantQualityIds
+        ? qualityCategories.filter((cat) => relevantQualityIds.includes(cat.id))
+        : qualityCategories;
+      total = targetCats.length;
+      filled = targetCats.filter(
         (cat) => (blueprint.quality[cat.id]?.length ?? 0) > 0
       ).length;
       break;

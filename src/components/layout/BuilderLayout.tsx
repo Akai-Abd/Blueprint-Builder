@@ -11,7 +11,14 @@ import GenerationScreen from '@/components/GenerationScreen';
 import AIAssistantPanel from '@/components/AIAssistantPanel';
 import ExportModal from '@/components/ExportModal';
 import ErrorBoundary from '@/components/ErrorBoundary';
-import { setAutoSaveCallbacks } from '@/lib/autoSave';
+import {
+  EMPTY_GENERATED_DOCS,
+  getGeneratedDocs,
+  saveGeneratedDocs,
+  setAutoSaveCallbacks,
+  subscribeGeneratedDocs,
+} from '@/lib/autoSave';
+import { useBlueprintStore } from '@/stores/blueprintStore';
 import type { GeneratedDocument } from '@/lib/generation';
 
 type Screen = 'builder' | 'review' | 'generation';
@@ -34,12 +41,29 @@ function useMediaQuery(query: string): boolean {
 
 export default function BuilderLayout() {
   const router = useRouter();
+  const blueprintId = useBlueprintStore((s) => s.blueprint.id);
   const [searchOpen, setSearchOpen] = useState(false);
   const [screen, setScreen] = useState<Screen>('builder');
   const [aiPanelOpen, setAIPanelOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
-  const [generatedDocs, setGeneratedDocs] = useState<GeneratedDocument[]>([]);
+
+  const getDocsSnapshot = useCallback(
+    () => getGeneratedDocs(blueprintId),
+    [blueprintId],
+  );
+  const generatedDocs = useSyncExternalStore(
+    subscribeGeneratedDocs,
+    getDocsSnapshot,
+    () => EMPTY_GENERATED_DOCS,
+  );
+
+  const handleDocsChange = useCallback(
+    (docs: GeneratedDocument[]) => {
+      saveGeneratedDocs(blueprintId, docs);
+    },
+    [blueprintId],
+  );
 
   // Responsive state
   const [navOpen, setNavOpen] = useState(false);
@@ -158,9 +182,12 @@ export default function BuilderLayout() {
           />
           <main className="builder-main" role="main" aria-label="Generation" style={{ overflow: 'hidden' }}>
             <GenerationScreen
+              key={blueprintId}
+              initialDocs={generatedDocs}
+              onDocsChange={handleDocsChange}
               onBack={() => setScreen('review')}
               onExport={(docs) => {
-                setGeneratedDocs(docs);
+                saveGeneratedDocs(blueprintId, docs);
                 setExportOpen(true);
               }}
             />
@@ -208,6 +235,7 @@ export default function BuilderLayout() {
         <ExportModal
           isOpen={exportOpen}
           onClose={() => setExportOpen(false)}
+          generatedDocs={generatedDocs}
         />
       </div>
     </ErrorBoundary>

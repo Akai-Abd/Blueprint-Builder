@@ -15,6 +15,7 @@ export default function ProjectBasicsSection() {
   const basics = useBlueprintStore((s) => s.blueprint.basics);
   const setProjectName = useBlueprintStore((s) => s.setProjectName);
   const setProjectDescription = useBlueprintStore((s) => s.setProjectDescription);
+  const setDomainNotes = useBlueprintStore((s) => s.setDomainNotes);
   const setCategory = useBlueprintStore((s) => s.setCategory);
   const setIndustry = useBlueprintStore((s) => s.setIndustry);
   const setProjectType = useBlueprintStore((s) => s.setProjectType);
@@ -50,6 +51,18 @@ export default function ProjectBasicsSection() {
         onChange={setProjectDescription}
         placeholder="Describe what your project does, who it's for, and what problem it solves..."
         maxLength={500}
+        multiline
+      />
+
+      {/* Core Domain Entities & Constraints (optional) */}
+      <TextInput
+        id="project-domain-notes"
+        label="Core Domain Entities, Workflows & Constraints (Optional)"
+        value={basics.domainNotes ?? ''}
+        onChange={setDomainNotes}
+        placeholder="e.g., Entities: Workspace, Project, Task, Invoice. Constraints: strict tenant isolation, EU data residency, p95 API < 200ms"
+        hint="Shapes generated database models, API endpoints, architecture notes, and AI context."
+        maxLength={1000}
         multiline
       />
 

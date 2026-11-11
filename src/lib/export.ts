@@ -1,7 +1,7 @@
 'use client';
 
 import type { Blueprint } from '@/types/blueprint';
-import type { GeneratedDocument } from '@/lib/generation';
+import { deriveEnvVariables, type GeneratedDocument } from '@/lib/generation';
 
 // ─── Export as JSON ──────────────────────────────────────────────────
 
@@ -137,22 +137,58 @@ export function exportAsPDF(docs: GeneratedDocument[]): void {
 
 // ─── Export as ZIP ───────────────────────────────────────────────────
 
+export interface ExportArchiveEntry {
+  path: string;
+  content: string;
+}
+
+/** Generate a populated .env.example file tailored to selected technologies and integrations. */
+export function generateEnvExample(blueprint: Blueprint): string {
+  const projectName = blueprint.basics.name || 'Untitled Project';
+  const vars = deriveEnvVariables(blueprint);
+  return `# Environment Variables — ${projectName}\n# Copy this file to .env and fill in real values.\n\n${vars.join('\n')}\n`;
+}
+
+/** Map generated documents and metadata into a repo-ready file tree. */
+export function buildRepoExportFiles(
+  docs: GeneratedDocument[],
+  blueprint: Blueprint,
+): ExportArchiveEntry[] {
+  const entries: ExportArchiveEntry[] = [];
+
+  for (const doc of docs) {
+    const content = doc.content.trimStart().startsWith('# ')
+      ? doc.content
+      : `# ${doc.title}\n\n${doc.content}`;
+
+    if (doc.id === 'readme') {
+      entries.push({ path: 'README.md', content });
+    } else if (doc.id === 'ai-context') {
+      entries.push({ path: 'AGENTS.md', content });
+    } else {
+      entries.push({ path: `docs/${sanitize(doc.id)}.md`, content });
+    }
+  }
+
+  entries.push({ path: '.env.example', content: generateEnvExample(blueprint) });
+  entries.push({ path: 'blueprint.json', content: JSON.stringify(blueprint, null, 2) });
+
+  return entries;
+}
+
 export async function exportAsZIP(
   docs: GeneratedDocument[],
   blueprint: Blueprint,
 ): Promise<void> {
   const JSZip = (await import('jszip')).default;
   const zip = new JSZip();
+  const entries = buildRepoExportFiles(docs, blueprint);
 
-  // Add each document as an .md file
-  for (const doc of docs) {
-    zip.file(`${sanitize(doc.id)}.md`, `# ${doc.title}\n\n${doc.content}`);
+  for (const entry of entries) {
+    zip.file(entry.path, entry.content);
     // Yield back to the browser's event loop to prevent blocking the UI
     await new Promise((r) => setTimeout(r, 0));
   }
-
-  // Add raw blueprint JSON
-  zip.file('blueprint.json', JSON.stringify(blueprint, null, 2));
 
   const blob = await zip.generateAsync({ type: 'blob' });
   const url = URL.createObjectURL(blob);

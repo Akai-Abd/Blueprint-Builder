@@ -24,6 +24,7 @@ interface BlueprintStore {
   // Project Basics
   setProjectName: (name: string) => void;
   setProjectDescription: (description: string) => void;
+  setDomainNotes: (domainNotes: string) => void;
   setCategory: (category: string) => void;
   setIndustry: (industry: string) => void;
   setProjectType: (type: ProjectType) => void;
@@ -129,6 +130,15 @@ export const useBlueprintStore = create<BlueprintStore>((set, get) => {
         blueprint: {
           ...s.blueprint,
           basics: { ...s.blueprint.basics, description },
+          updatedAt: new Date().toISOString(),
+        },
+      })),
+
+    setDomainNotes: (domainNotes) =>
+      set((s) => ({
+        blueprint: {
+          ...s.blueprint,
+          basics: { ...s.blueprint.basics, domainNotes },
           updatedAt: new Date().toISOString(),
         },
       })),

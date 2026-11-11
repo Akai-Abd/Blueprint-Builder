@@ -1,11 +1,23 @@
 'use client';
 
 import { Blueprint } from '@/types/blueprint';
+import type { GeneratedDocument } from '@/lib/generation';
 
 // ─── Storage Keys ────────────────────────────────────────────────────
 
 const STORAGE_KEY = 'bb_blueprints';
 const CURRENT_ID_KEY = 'bb_current_blueprint_id';
+const GENERATED_DOCS_PREFIX = 'bb_generated_docs_';
+
+export const EMPTY_GENERATED_DOCS: GeneratedDocument[] = [];
+const docsSnapshotCache = new Map<string, { raw: string; docs: GeneratedDocument[] }>();
+const docsListeners = new Set<() => void>();
+
+function notifyDocsChanged(): void {
+  for (const listener of docsListeners) {
+    listener();
+  }
+}
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -61,16 +73,21 @@ export function saveBlueprint(blueprint: Blueprint): void {
   writeAll(items);
 }
 
-/** Delete a blueprint by ID. */
+/** Delete a blueprint by ID along with its cached generated documents. */
 export function deleteBlueprint(id: string): void {
   writeAll(readAll().filter((s) => s.blueprint.id !== id));
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(`${GENERATED_DOCS_PREFIX}${id}`);
+    docsSnapshotCache.delete(id);
+    notifyDocsChanged();
+  }
   // Clear current ID if it matches
   if (getCurrentBlueprintId() === id) {
     clearCurrentBlueprintId();
   }
 }
 
-/** Duplicate a blueprint, returning the new copy. */
+/** Duplicate a blueprint (including generated docs if present), returning the new copy. */
 export function duplicateBlueprint(id: string): Blueprint | null {
   const original = getBlueprint(id);
   if (!original) return null;
@@ -80,7 +97,75 @@ export function duplicateBlueprint(id: string): Blueprint | null {
   copy.updatedAt = new Date().toISOString();
   copy.basics.name = `${original.blueprint.basics.name || 'Untitled'} (Copy)`;
   saveBlueprint(copy);
+  const docs = getGeneratedDocs(id);
+  if (docs.length > 0) {
+    saveGeneratedDocs(copy.id, docs);
+  }
   return copy;
+}
+
+// ─── Generated Documents Persistence ─────────────────────────────────
+
+/** Get persisted generated documents for a blueprint (referentially stable snapshot). */
+export function getGeneratedDocs(blueprintId: string): GeneratedDocument[] {
+  if (typeof window === 'undefined' || !blueprintId) return EMPTY_GENERATED_DOCS;
+  const key = `${GENERATED_DOCS_PREFIX}${blueprintId}`;
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) {
+      docsSnapshotCache.delete(blueprintId);
+      return EMPTY_GENERATED_DOCS;
+    }
+    const cached = docsSnapshotCache.get(blueprintId);
+    if (cached && cached.raw === raw) {
+      return cached.docs;
+    }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return EMPTY_GENERATED_DOCS;
+    const validDocs = parsed.filter(
+      (d): d is GeneratedDocument =>
+        Boolean(d) && typeof d.id === 'string' && typeof d.content === 'string',
+    );
+    docsSnapshotCache.set(blueprintId, { raw, docs: validDocs });
+    return validDocs;
+  } catch {
+    return EMPTY_GENERATED_DOCS;
+  }
+}
+
+/** Persist generated documents for a blueprint cleanly without polluting share URLs. */
+export function saveGeneratedDocs(blueprintId: string, docs: GeneratedDocument[]): void {
+  if (typeof window === 'undefined' || !blueprintId) return;
+  const key = `${GENERATED_DOCS_PREFIX}${blueprintId}`;
+  if (docs.length === 0) {
+    localStorage.removeItem(key);
+    docsSnapshotCache.delete(blueprintId);
+  } else {
+    const copy: GeneratedDocument[] = JSON.parse(JSON.stringify(docs));
+    const raw = JSON.stringify(copy);
+    localStorage.setItem(key, raw);
+    docsSnapshotCache.set(blueprintId, { raw, docs: copy });
+  }
+  notifyDocsChanged();
+}
+
+/** Subscribe to generated document changes across screens/tabs. */
+export function subscribeGeneratedDocs(listener: () => void): () => void {
+  docsListeners.add(listener);
+  const handleStorage = (e: StorageEvent) => {
+    if (!e.key || e.key.startsWith(GENERATED_DOCS_PREFIX)) {
+      listener();
+    }
+  };
+  if (typeof window !== 'undefined') {
+    window.addEventListener('storage', handleStorage);
+  }
+  return () => {
+    docsListeners.delete(listener);
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('storage', handleStorage);
+    }
+  };
 }
 
 // ─── Current Session ─────────────────────────────────────────────────

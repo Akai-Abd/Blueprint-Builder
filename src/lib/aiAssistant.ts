@@ -1,14 +1,36 @@
 import { Blueprint, BuilderSectionId } from '@/types/blueprint';
 import { allTechnologies } from '@/data/options/technologies';
+import { featureOptions } from '@/data/options/features';
+import { integrationOptions } from '@/data/options/integrations';
+import { qualityOptions } from '@/data/options/quality';
 import { generateRecommendations } from './recommendation';
 
 // ─── Types ───────────────────────────────────────────────────────────
+
+export type OptionAction =
+  | {
+      kind: 'technology';
+      category: keyof Blueprint['technology'];
+      id: string;
+      name: string;
+      icon?: string;
+    }
+  | { kind: 'feature'; id: string; name: string; icon?: string }
+  | { kind: 'integration'; id: string; name: string; icon?: string }
+  | {
+      kind: 'quality';
+      category: keyof Blueprint['quality'];
+      id: string;
+      name: string;
+      icon?: string;
+    };
 
 export interface AssistantMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
+  actions?: OptionAction[];
 }
 
 export type QuickAction =
@@ -259,11 +281,16 @@ export interface ChatTurn {
   content: string;
 }
 
+export interface AssistantReply {
+  content: string;
+  mode: 'live' | 'offline';
+  fallbackReason?: string;
+}
+
 /**
- * Process a user message or quick action and return an assistant response.
- * Simulates async delay for natural feel.
+ * Process a user message or quick action and return content alongside mode/fallback metadata.
  */
-export async function getAssistantResponse(
+export async function getAssistantReply(
   input: string | QuickAction,
   blueprint: Blueprint,
   activeSection: BuilderSectionId,
@@ -271,26 +298,27 @@ export async function getAssistantResponse(
   provider?: string,
   modelId?: string,
   history: ChatTurn[] = [],
-): Promise<string> {
-  // Quick actions
+): Promise<AssistantReply> {
+  // Quick actions use deterministic local blueprint analysis
   switch (input) {
     case 'suggest-stack':
-      await new Promise((resolve) => setTimeout(resolve, 200 + Math.random() * 400));
-      return suggestStack(blueprint);
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      return { content: suggestStack(blueprint), mode: 'offline' };
     case 'whats-missing':
-      await new Promise((resolve) => setTimeout(resolve, 200 + Math.random() * 400));
-      return whatsMissing(blueprint);
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      return { content: whatsMissing(blueprint), mode: 'offline' };
     case 'estimate-complexity':
-      await new Promise((resolve) => setTimeout(resolve, 200 + Math.random() * 400));
-      return estimateComplexity(blueprint);
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      return { content: estimateComplexity(blueprint), mode: 'offline' };
     case 'suggest-description':
-      await new Promise((resolve) => setTimeout(resolve, 200 + Math.random() * 400));
-      return suggestDescription(blueprint);
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      return { content: suggestDescription(blueprint), mode: 'offline' };
     case 'explain-section':
-      await new Promise((resolve) => setTimeout(resolve, 200 + Math.random() * 400));
-      return explainSection(activeSection);
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      return { content: explainSection(activeSection), mode: 'offline' };
     default:
       if (apiKey && apiKey.trim() !== '') {
+        let fallbackReason: string | undefined;
         try {
           const apiMessages = [
             ...history
@@ -312,16 +340,50 @@ export async function getAssistantResponse(
           });
           if (res.ok) {
             const data = await res.json();
-            return data.text;
+            return { content: data.text, mode: 'live' };
           }
+          const errData = await res.json().catch(() => ({}));
+          fallbackReason = errData.error || `API returned HTTP ${res.status}`;
         } catch (e) {
           console.error('Failed to hit chat API, falling back to local handler', e);
+          fallbackReason = e instanceof Error ? e.message : 'Network error calling chat API';
         }
+
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        return {
+          content: handleFreeformMessage(input, blueprint),
+          mode: 'offline',
+          fallbackReason,
+        };
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 200 + Math.random() * 400));
-      return handleFreeformMessage(input, blueprint);
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      return { content: handleFreeformMessage(input, blueprint), mode: 'offline' };
   }
+}
+
+/**
+ * Process a user message or quick action and return the text response.
+ */
+export async function getAssistantResponse(
+  input: string | QuickAction,
+  blueprint: Blueprint,
+  activeSection: BuilderSectionId,
+  apiKey?: string,
+  provider?: string,
+  modelId?: string,
+  history: ChatTurn[] = [],
+): Promise<string> {
+  const reply = await getAssistantReply(
+    input,
+    blueprint,
+    activeSection,
+    apiKey,
+    provider,
+    modelId,
+    history,
+  );
+  return reply.content;
 }
 
 /**
@@ -343,4 +405,181 @@ export function getContextualGreeting(section: BuilderSectionId): string {
       "🛡️ Don't skip quality! Security, testing, and monitoring are critical for production apps. Ask me what's missing.",
   };
   return greetings[section];
+}
+
+// ─── Actionable Option Extraction ────────────────────────────────────
+
+const GENERIC_SINGLE_WORDS = new Set([
+  'search',
+  'settings',
+  'dashboard',
+  'analytics',
+  'notifications',
+  'payments',
+  'messaging',
+  'comments',
+  'reports',
+  'onboarding',
+  'accessibility',
+  'localization',
+  'webhooks',
+  'authentication',
+]);
+
+interface IndexedAction {
+  action: OptionAction;
+  aliases: string[];
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildAliases(id: string, name: string): string[] {
+  const aliases = new Set<string>([name]);
+  const parenMatch = name.match(/^([^(]+)\s*\(/);
+  if (parenMatch) {
+    const trimmed = parenMatch[1].trim();
+    if (trimmed.length >= 4 && trimmed.toLowerCase() !== 'redis') {
+      aliases.add(trimmed);
+    }
+  }
+  if (name.includes(' / ')) {
+    for (const part of name.split(' / ')) {
+      const trimmed = part.trim();
+      if (trimmed.length >= 4) aliases.add(trimmed);
+    }
+  }
+  if (id === 'firebase-firestore') {
+    aliases.add('Firestore');
+  }
+  if (id === 'drizzle') {
+    aliases.add('Drizzle');
+  }
+  return Array.from(aliases);
+}
+
+const CATALOG_ACTIONS: IndexedAction[] = [
+  ...allTechnologies.map((opt) => ({
+    action: {
+      kind: 'technology' as const,
+      category: opt.category as keyof Blueprint['technology'],
+      id: opt.id,
+      name: opt.name,
+      icon: opt.icon,
+    },
+    aliases: buildAliases(opt.id, opt.name),
+  })),
+  ...integrationOptions.map((opt) => ({
+    action: {
+      kind: 'integration' as const,
+      id: opt.id,
+      name: opt.name,
+      icon: opt.icon,
+    },
+    aliases: buildAliases(opt.id, opt.name),
+  })),
+  ...featureOptions.map((opt) => ({
+    action: {
+      kind: 'feature' as const,
+      id: opt.id,
+      name: opt.name,
+      icon: opt.icon,
+    },
+    aliases: buildAliases(opt.id, opt.name),
+  })),
+  ...Object.entries(qualityOptions).flatMap(([category, opts]) =>
+    opts.map((opt) => ({
+      action: {
+        kind: 'quality' as const,
+        category: category as keyof Blueprint['quality'],
+        id: opt.id,
+        name: opt.name,
+        icon: opt.icon,
+      },
+      aliases: buildAliases(opt.id, opt.name),
+    })),
+  ),
+];
+
+function findMentionIndex(content: string, id: string, aliases: string[]): number {
+  let earliest = -1;
+
+  const idCodeRegex = new RegExp(`\`${escapeRegExp(id)}\``, 'i');
+  const idMatch = idCodeRegex.exec(content);
+  if (idMatch) earliest = idMatch.index;
+
+  for (const alias of aliases) {
+    const escaped = escapeRegExp(alias);
+    const requiresCaseOrFormatting =
+      alias.length <= 3 || GENERIC_SINGLE_WORDS.has(alias.toLowerCase());
+
+    if (requiresCaseOrFormatting) {
+      const formattedRegex = new RegExp(
+        `(\\*\\*|\\\`)\\s*${escaped}\\s*(\\*\\*|\\\`)`,
+        'i',
+      );
+      const fmtMatch = formattedRegex.exec(content);
+      if (fmtMatch && (earliest === -1 || fmtMatch.index < earliest)) {
+        earliest = fmtMatch.index;
+      }
+
+      const exactBoundaryRegex = new RegExp(
+        `(?<![A-Za-z0-9])${escaped}(?![A-Za-z0-9])`,
+      );
+      const exactMatch = exactBoundaryRegex.exec(content);
+      if (exactMatch && (earliest === -1 || exactMatch.index < earliest)) {
+        earliest = exactMatch.index;
+      }
+    } else {
+      const regex = new RegExp(
+        `(?<![A-Za-z0-9])${escaped}(?![A-Za-z0-9])`,
+        'i',
+      );
+      const m = regex.exec(content);
+      if (m && (earliest === -1 || m.index < earliest)) {
+        earliest = m.index;
+      }
+    }
+  }
+
+  return earliest;
+}
+
+/** Extract mentioned catalog options from assistant text in order of appearance. */
+export function extractOptionActions(content: string, limit = 8): OptionAction[] {
+  const matches: { action: OptionAction; index: number }[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of CATALOG_ACTIONS) {
+    const key = `${entry.action.kind}:${entry.action.id}`;
+    if (seen.has(key)) continue;
+    const index = findMentionIndex(content, entry.action.id, entry.aliases);
+    if (index >= 0) {
+      seen.add(key);
+      matches.push({ action: entry.action, index });
+    }
+  }
+
+  return matches
+    .sort((a, b) => a.index - b.index)
+    .slice(0, limit)
+    .map((m) => m.action);
+}
+
+/** Check whether an extracted catalog option is currently selected on a blueprint. */
+export function isOptionActionSelected(
+  blueprint: Blueprint,
+  action: OptionAction,
+): boolean {
+  switch (action.kind) {
+    case 'technology':
+      return blueprint.technology[action.category]?.includes(action.id) ?? false;
+    case 'feature':
+      return blueprint.features.selected.includes(action.id);
+    case 'integration':
+      return blueprint.integrations.selected.includes(action.id);
+    case 'quality':
+      return blueprint.quality[action.category]?.includes(action.id) ?? false;
+  }
 }
