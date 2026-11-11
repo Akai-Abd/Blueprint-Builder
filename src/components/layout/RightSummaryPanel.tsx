@@ -1,6 +1,5 @@
 'use client';
 
-import { useBlueprintStore } from '@/stores/blueprintStore';
 import ValidationPanel from '@/components/ValidationPanel';
 import { useDebouncedBlueprint } from '@/hooks/useDebouncedBlueprint';
 

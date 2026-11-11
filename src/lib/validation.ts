@@ -197,10 +197,3 @@ export function getValidationSummary(results: ValidationResult[]) {
     total: results.length,
   };
 }
-
-export function getValidationForSection(
-  results: ValidationResult[],
-  section: BuilderSectionId
-): ValidationResult[] {
-  return results.filter((r) => r.section === section);
-}

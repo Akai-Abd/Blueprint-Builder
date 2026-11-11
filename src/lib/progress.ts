@@ -3,6 +3,8 @@ import {
   BuilderSectionId,
   BUILDER_SECTIONS,
 } from '@/types/blueprint';
+import { technologyCategories } from '@/data/options/technologies';
+import { qualityCategories } from '@/data/options/quality';
 
 // ─── Section Progress ────────────────────────────────────────────────
 
@@ -54,9 +56,10 @@ export function getSectionProgress(
       break;
 
     case BuilderSectionId.Technology: {
-      const cats = Object.values(blueprint.technology);
-      total = cats.length;
-      filled = cats.filter((a) => a.length > 0).length;
+      total = technologyCategories.length;
+      filled = technologyCategories.filter(
+        (cat) => (blueprint.technology[cat.id]?.length ?? 0) > 0
+      ).length;
       break;
     }
     case BuilderSectionId.Features:
@@ -70,9 +73,10 @@ export function getSectionProgress(
       break;
 
     case BuilderSectionId.Quality: {
-      const cats = Object.values(blueprint.quality);
-      total = cats.length;
-      filled = cats.filter((a) => a.length > 0).length;
+      total = qualityCategories.length;
+      filled = qualityCategories.filter(
+        (cat) => (blueprint.quality[cat.id]?.length ?? 0) > 0
+      ).length;
       break;
     }
   }

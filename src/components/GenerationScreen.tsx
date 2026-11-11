@@ -1,13 +1,17 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useBlueprintStore } from '@/stores/blueprintStore';
 import {
   documentTypes,
   type GeneratedDocument,
 } from '@/lib/generation';
 import { exportAsZIP } from '@/lib/export';
-import { MODELS_BY_PROVIDER } from '@/lib/aiModels';
+import {
+  LLM_PROVIDERS,
+  MODELS_BY_PROVIDER,
+  type LLMProvider,
+} from '@/lib/aiModels';
 
 interface GenerationScreenProps {
   onBack: () => void;
@@ -15,54 +19,60 @@ interface GenerationScreenProps {
 }
 
 type GenerationState = 'select' | 'generating' | 'preview';
+type DocProgressStatus = 'pending' | 'active' | 'done';
+
+const GENERATION_CONCURRENCY = 3;
+
+function readInitialProvider(): LLMProvider {
+  if (typeof window === 'undefined') return 'google';
+  const saved = localStorage.getItem('blueprint_llm_provider');
+  return saved && (LLM_PROVIDERS as readonly string[]).includes(saved)
+    ? (saved as LLMProvider)
+    : 'google';
+}
+
+function readInitialModelId(provider: LLMProvider): string {
+  if (typeof window === 'undefined') return MODELS_BY_PROVIDER[provider][0].id;
+  return localStorage.getItem(`blueprint_${provider}_model`) || MODELS_BY_PROVIDER[provider][0].id;
+}
+
+function readInitialApiKeys(): Record<LLMProvider, string> {
+  if (typeof window === 'undefined') {
+    return { google: '', openai: '', anthropic: '', mistral: '', groq: '', cohere: '' };
+  }
+  return {
+    google: localStorage.getItem('blueprint_google_api_key') || '',
+    openai: localStorage.getItem('blueprint_openai_api_key') || '',
+    anthropic: localStorage.getItem('blueprint_anthropic_api_key') || '',
+    mistral: localStorage.getItem('blueprint_mistral_api_key') || '',
+    groq: localStorage.getItem('blueprint_groq_api_key') || '',
+    cohere: localStorage.getItem('blueprint_cohere_api_key') || '',
+  };
+}
 
 export default function GenerationScreen({ onBack, onExport }: GenerationScreenProps) {
   const blueprint = useBlueprintStore((s) => s.blueprint);
+  const markComplete = useBlueprintStore((s) => s.markComplete);
 
   const [selectedDocs, setSelectedDocs] = useState<string[]>(
-    documentTypes.map((d) => d.id)
+    () => documentTypes.map((d) => d.id),
   );
   const [state, setState] = useState<GenerationState>('select');
   const [generatedDocs, setGeneratedDocs] = useState<GeneratedDocument[]>([]);
   const [activeDocId, setActiveDocId] = useState<string | null>(null);
-  const [generatingIndex, setGeneratingIndex] = useState(0);
+  const [docStatuses, setDocStatuses] = useState<DocProgressStatus[]>([]);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
-  const [provider, setProvider] = useState<'google' | 'openai' | 'anthropic' | 'mistral' | 'groq' | 'cohere'>('google');
-  const [modelId, setModelId] = useState('gemini-3-flash-preview');
-  const [apiKeys, setApiKeys] = useState({ google: '', openai: '', anthropic: '', mistral: '', groq: '', cohere: '' });
-
-  useEffect(() => {
-    setApiKeys({
-      google: localStorage.getItem('blueprint_google_api_key') || '',
-      openai: localStorage.getItem('blueprint_openai_api_key') || '',
-      anthropic: localStorage.getItem('blueprint_anthropic_api_key') || '',
-      mistral: localStorage.getItem('blueprint_mistral_api_key') || '',
-      groq: localStorage.getItem('blueprint_groq_api_key') || '',
-      cohere: localStorage.getItem('blueprint_cohere_api_key') || '',
-    });
-    const savedProvider = localStorage.getItem('blueprint_llm_provider') as any;
-    if (savedProvider && ['google', 'openai', 'anthropic', 'mistral', 'groq', 'cohere'].includes(savedProvider)) {
-      setProvider(savedProvider);
-      const savedModel = localStorage.getItem(`blueprint_${savedProvider}_model`);
-      if (savedModel) {
-        setModelId(savedModel);
-      } else {
-        setModelId(MODELS_BY_PROVIDER[savedProvider][0].id);
-      }
-    }
-  }, []);
+  const [provider, setProvider] = useState<LLMProvider>(readInitialProvider);
+  const [modelId, setModelId] = useState<string>(() => readInitialModelId(readInitialProvider()));
+  const [apiKeys, setApiKeys] = useState<Record<LLMProvider, string>>(readInitialApiKeys);
 
   const handleProviderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value as any;
+    const val = e.target.value as LLMProvider;
     setProvider(val);
     localStorage.setItem('blueprint_llm_provider', val);
-    
+
     const savedModel = localStorage.getItem(`blueprint_${val}_model`);
-    if (savedModel) {
-      setModelId(savedModel);
-    } else {
-      setModelId(MODELS_BY_PROVIDER[val][0].id);
-    }
+    setModelId(savedModel || MODELS_BY_PROVIDER[val][0].id);
   };
 
   const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -73,13 +83,13 @@ export default function GenerationScreen({ onBack, onExport }: GenerationScreenP
 
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    setApiKeys(prev => ({ ...prev, [provider]: val }));
+    setApiKeys((prev) => ({ ...prev, [provider]: val }));
     localStorage.setItem(`blueprint_${provider}_api_key`, val);
   };
 
   const toggleDoc = useCallback((id: string) => {
     setSelectedDocs((prev) =>
-      prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id],
     );
   }, []);
 
@@ -92,33 +102,52 @@ export default function GenerationScreen({ onBack, onExport }: GenerationScreenP
   }, []);
 
   const handleGenerate = useCallback(async () => {
-    setState('generating');
-    setGeneratingIndex(0);
-
-    // Simulate progressive generation with small delays for visual feedback
-    const results: GeneratedDocument[] = [];
     const docsToGenerate = selectedDocs
       .map((id) => documentTypes.find((d) => d.id === id))
       .filter((d): d is (typeof documentTypes)[number] => d !== undefined);
 
-    for (let i = 0; i < docsToGenerate.length; i++) {
-      setGeneratingIndex(i);
-      const doc = docsToGenerate[i];
-      
+    if (docsToGenerate.length === 0) return;
+
+    setState('generating');
+    setDocStatuses(docsToGenerate.map((_, idx) => (idx === 0 ? 'active' : 'pending')));
+
+    const results: GeneratedDocument[] = new Array(docsToGenerate.length);
+    const activeApiKey = apiKeys[provider].trim() || undefined;
+    let skipNetwork = false;
+
+    const generateOne = async (index: number) => {
+      const doc = docsToGenerate[index];
+      setDocStatuses((prev) => prev.map((s, idx) => (idx === index ? 'active' : s)));
+
+      if (skipNetwork) {
+        results[index] = {
+          id: doc.id,
+          title: doc.title,
+          icon: doc.icon,
+          description: doc.description,
+          content: doc.generate(blueprint),
+        };
+        setDocStatuses((prev) => prev.map((s, idx) => (idx === index ? 'done' : s)));
+        return;
+      }
+
       try {
         const res = await fetch('/api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             blueprint,
-            documentId: doc.id,
             documentTitle: doc.title,
             documentDescription: doc.description,
-            apiKey: apiKeys[provider].trim() || undefined,
+            apiKey: activeApiKey,
             provider,
             modelId,
           }),
         });
+
+        if (res.status === 401 && !activeApiKey) {
+          skipNetwork = true;
+        }
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
@@ -126,33 +155,56 @@ export default function GenerationScreen({ onBack, onExport }: GenerationScreenP
         }
 
         const data = await res.json();
-        results.push({
+        results[index] = {
           id: doc.id,
           title: doc.title,
           icon: doc.icon,
           description: doc.description,
           content: data.text,
-        });
+        };
       } catch (err) {
-        console.error(`Failed to generate ${doc.title} via LLM, falling back to static generator:`, err);
-        results.push({
+        console.error(
+          `Failed to generate ${doc.title} via LLM, falling back to static generator:`,
+          err,
+        );
+        results[index] = {
           id: doc.id,
           title: doc.title,
           icon: doc.icon,
           description: doc.description,
           content: doc.generate(blueprint),
-        });
+        };
       }
+
+      setDocStatuses((prev) => prev.map((s, idx) => (idx === index ? 'done' : s)));
+    };
+
+    // Probe first item when no client key is set so 401 skips unnecessary extra requests
+    let startIndex = 0;
+    if (!activeApiKey) {
+      await generateOne(0);
+      startIndex = 1;
     }
 
+    let cursor = startIndex;
+    const workerCount = Math.min(GENERATION_CONCURRENCY, docsToGenerate.length - startIndex);
+    const workers = Array.from({ length: Math.max(workerCount, 0) }, async () => {
+      while (cursor < docsToGenerate.length) {
+        const idx = cursor++;
+        await generateOne(idx);
+      }
+    });
+    await Promise.all(workers);
+
+    markComplete();
     setGeneratedDocs(results);
     setActiveDocId(results[0]?.id ?? null);
     setState('preview');
-  }, [selectedDocs, blueprint]);
+  }, [selectedDocs, blueprint, apiKeys, provider, modelId, markComplete]);
 
   const activeDoc = useMemo(
     () => generatedDocs.find((d) => d.id === activeDocId) ?? null,
-    [generatedDocs, activeDocId]
+    [generatedDocs, activeDocId],
   );
 
   const handleCopy = useCallback(async () => {
@@ -179,8 +231,8 @@ export default function GenerationScreen({ onBack, onExport }: GenerationScreenP
   }, [activeDoc]);
 
   const handleDownloadAll = useCallback(async () => {
-    const blueprint = useBlueprintStore.getState().blueprint;
-    await exportAsZIP(generatedDocs, blueprint);
+    const currentBlueprint = useBlueprintStore.getState().blueprint;
+    await exportAsZIP(generatedDocs, currentBlueprint);
   }, [generatedDocs]);
 
   // ─── Selection View ──────────────────────────────────────────────
@@ -198,17 +250,18 @@ export default function GenerationScreen({ onBack, onExport }: GenerationScreenP
             <button className="btn btn--ghost" onClick={onBack}>← Back to Review</button>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
               <div style={{ display: 'flex', gap: '8px', width: '250px' }}>
-                <select 
-                  value={provider} 
+                <select
+                  value={provider}
                   onChange={handleProviderChange}
+                  aria-label="LLM provider"
                   style={{
                     padding: '8px',
                     borderRadius: '6px',
                     border: '1px solid var(--border-subtle)',
                     background: 'var(--bg-card)',
-                    color: 'var(--text-main)',
+                    color: 'var(--text-primary)',
                     fontSize: '0.875rem',
-                    flex: 1
+                    flex: 1,
                   }}
                 >
                   <option value="google">Google (Gemini)</option>
@@ -220,26 +273,28 @@ export default function GenerationScreen({ onBack, onExport }: GenerationScreenP
                 </select>
               </div>
               <div style={{ display: 'flex', gap: '8px', width: '250px' }}>
-                <select 
-                  value={modelId} 
+                <select
+                  value={modelId}
                   onChange={handleModelChange}
+                  aria-label="LLM model"
                   style={{
                     padding: '8px',
                     borderRadius: '6px',
                     border: '1px solid var(--border-subtle)',
                     background: 'var(--bg-card)',
-                    color: 'var(--text-main)',
+                    color: 'var(--text-primary)',
                     fontSize: '0.875rem',
-                    flex: 1
+                    flex: 1,
                   }}
                 >
-                  {MODELS_BY_PROVIDER[provider].map(m => (
+                  {MODELS_BY_PROVIDER[provider].map((m) => (
                     <option key={m.id} value={m.id}>{m.label}</option>
                   ))}
                 </select>
               </div>
               <input
                 type="password"
+                aria-label="Provider API Key"
                 placeholder={`Optional: ${provider.charAt(0).toUpperCase() + provider.slice(1)} API Key`}
                 value={apiKeys[provider]}
                 onChange={handleApiKeyChange}
@@ -248,9 +303,9 @@ export default function GenerationScreen({ onBack, onExport }: GenerationScreenP
                   borderRadius: '6px',
                   border: '1px solid var(--border-subtle)',
                   background: 'var(--bg-card)',
-                  color: 'var(--text-main)',
+                  color: 'var(--text-primary)',
                   fontSize: '0.875rem',
-                  width: '250px'
+                  width: '250px',
                 }}
               />
               <button
@@ -307,10 +362,11 @@ export default function GenerationScreen({ onBack, onExport }: GenerationScreenP
   if (state === 'generating') {
     const docsToGenerate = selectedDocs
       .map((id) => documentTypes.find((d) => d.id === id))
-      .filter(Boolean);
-    const progressPct = Math.round(
-      ((generatingIndex + 1) / docsToGenerate.length) * 100
-    );
+      .filter((d): d is (typeof documentTypes)[number] => d !== undefined);
+    const doneCount = docStatuses.filter((s) => s === 'done').length;
+    const progressPct = docsToGenerate.length > 0
+      ? Math.round((doneCount / docsToGenerate.length) * 100)
+      : 0;
 
     return (
       <div className="generation-screen animate-fade-in">
@@ -325,27 +381,30 @@ export default function GenerationScreen({ onBack, onExport }: GenerationScreenP
               />
             </div>
             <span className="generation-progress-view__label">
-              {generatingIndex + 1} / {docsToGenerate.length}
+              {doneCount} / {docsToGenerate.length}
             </span>
           </div>
           <div className="generation-progress-view__items">
-            {docsToGenerate.map((doc, i) => (
-              <div
-                key={doc!.id}
-                className={`generation-progress-item ${
-                  i < generatingIndex
-                    ? 'generation-progress-item--done'
-                    : i === generatingIndex
-                    ? 'generation-progress-item--active'
-                    : ''
-                }`}
-              >
-                <span className="generation-progress-item__icon">
-                  {i < generatingIndex ? '✅' : i === generatingIndex ? '⏳' : '⬜'}
-                </span>
-                <span>{doc!.icon} {doc!.title}</span>
-              </div>
-            ))}
+            {docsToGenerate.map((doc, i) => {
+              const status = docStatuses[i] ?? 'pending';
+              return (
+                <div
+                  key={doc.id}
+                  className={`generation-progress-item ${
+                    status === 'done'
+                      ? 'generation-progress-item--done'
+                      : status === 'active'
+                      ? 'generation-progress-item--active'
+                      : ''
+                  }`}
+                >
+                  <span className="generation-progress-item__icon">
+                    {status === 'done' ? '✅' : status === 'active' ? '⏳' : '⬜'}
+                  </span>
+                  <span>{doc.icon} {doc.title}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

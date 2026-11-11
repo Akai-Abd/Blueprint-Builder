@@ -27,18 +27,11 @@ export default function DashboardPage() {
   const importFileRef = useRef<HTMLInputElement>(null);
   const deleteDialogRef = useRef<HTMLDivElement>(null);
 
-  // Load blueprints and check auth on mount
+  // Load blueprints on mount
   useEffect(() => {
     setMounted(true); // eslint-disable-line react-hooks/set-state-in-effect -- hydration guard requires setState
-    
-    // Auth Guard
-    if (localStorage.getItem('isAuthenticated') !== 'true') {
-      router.push('/login');
-      return;
-    }
-    
     setBlueprints(getAllBlueprints());
-  }, [router]);
+  }, []);
 
   const filtered = useMemo(() => {
     let items = blueprints;
@@ -195,9 +188,6 @@ export default function DashboardPage() {
           <button className="btn btn--primary" onClick={handleCreate} aria-label="Create new blueprint">
             ＋ New Blueprint
           </button>
-          <button className="btn btn--ghost" onClick={() => { localStorage.removeItem('isAuthenticated'); router.push('/login'); }} aria-label="Logout" style={{ marginLeft: '8px' }}>
-            🚪 Logout
-          </button>
         </div>
       </div>
 
@@ -341,7 +331,7 @@ export default function DashboardPage() {
       ) : (
         /* Empty State */
         <div className="dashboard__empty">
-          <div className="dashboard__empty-icon flex justify-center">
+          <div className="dashboard__empty-icon">
             <Image src="/logo-clean.jpg" alt="Blueprint Builder Logo" width={128} height={128} className="logo-glow-effect" style={{ opacity: 0.8 }} />
           </div>
           <h2 className="dashboard__empty-title">No Blueprints Yet</h2>

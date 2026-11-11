@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useBlueprintStore } from '@/stores/blueprintStore';
 import {
   getAssistantResponse,
@@ -21,62 +21,57 @@ export default function AIAssistantPanel({ isOpen, onClose }: AIAssistantPanelPr
   const activeSection = useBlueprintStore((s) => s.blueprint.activeSection);
   const blueprint = useDebouncedBlueprint();
 
-  const [messages, setMessages] = useState<AssistantMessage[]>([]);
+  const [prevSection, setPrevSection] = useState(activeSection);
+  const [messages, setMessages] = useState<AssistantMessage[]>(() => [
+    {
+      id: 'initial-greeting',
+      role: 'assistant',
+      content: getContextualGreeting(activeSection),
+      timestamp: 0,
+    },
+  ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const lastSectionRef = useRef(activeSection);
+
+  if (isOpen && activeSection !== prevSection) {
+    setPrevSection(activeSection);
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `greeting-${activeSection}-${prev.length}`,
+        role: 'assistant',
+        content: getContextualGreeting(activeSection),
+        timestamp: 0,
+      },
+    ]);
+  }
 
   // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
-  // Add contextual greeting when section changes
-  useEffect(() => {
-    if (isOpen && activeSection !== lastSectionRef.current) {
-      lastSectionRef.current = activeSection;
-      const greeting = getContextualGreeting(activeSection);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `greeting-${activeSection}-${Date.now()}`,
-          role: 'assistant',
-          content: greeting,
-          timestamp: Date.now(),
-        },
-      ]);
-    }
-  }, [activeSection, isOpen]);
-
-  // Initial greeting
-  useEffect(() => {
-    if (isOpen && messages.length === 0) {
-      lastSectionRef.current = activeSection;
-      const greeting = getContextualGreeting(activeSection);
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentionally setting initial state when panel first opens
-      setMessages([
-        {
-          id: 'initial-greeting',
-          role: 'assistant',
-          content: greeting,
-          timestamp: Date.now(),
-        },
-      ]);
-    }
-  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // Focus input when opened
   useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => inputRef.current?.focus(), 300);
-    }
+    if (!isOpen) return;
+    const timer = setTimeout(() => inputRef.current?.focus(), 300);
+    return () => clearTimeout(timer);
   }, [isOpen]);
 
   const sendMessage = useCallback(
     async (text: string | QuickAction, isQuickAction = false) => {
       if (!text.trim()) return;
+
+      const history = messages
+        .filter(
+          (m) =>
+            !m.id.startsWith('greeting-') &&
+            !m.id.startsWith('error-') &&
+            m.id !== 'initial-greeting',
+        )
+        .map((m) => ({ role: m.role, content: m.content }));
 
       // Add user message (for freeform only)
       if (!isQuickAction) {
@@ -117,7 +112,8 @@ export default function AIAssistantPanel({ isOpen, onClose }: AIAssistantPanelPr
           activeSection,
           apiKey,
           provider,
-          modelId
+          modelId,
+          history,
         );
         setMessages((prev) => [
           ...prev,
@@ -142,7 +138,7 @@ export default function AIAssistantPanel({ isOpen, onClose }: AIAssistantPanelPr
         setIsTyping(false);
       }
     },
-    [blueprint, activeSection],
+    [blueprint, activeSection, messages],
   );
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -153,7 +149,7 @@ export default function AIAssistantPanel({ isOpen, onClose }: AIAssistantPanelPr
   };
 
   // Recommendation count for badge
-  const recCount = generateRecommendations(blueprint).length;
+  const recCount = useMemo(() => generateRecommendations(blueprint).length, [blueprint]);
 
   if (!isOpen) return null;
 
@@ -308,7 +304,13 @@ function MessageContent({ content }: { content: string }) {
     }
 
     // Headers
-    if (line.startsWith('## ')) {
+    if (line.startsWith('### ')) {
+      elements.push(
+        <h5 key={i} className="ai-msg__heading">
+          {renderInline(line.slice(4))}
+        </h5>,
+      );
+    } else if (line.startsWith('## ')) {
       elements.push(
         <h4 key={i} className="ai-msg__heading">
           {renderInline(line.slice(3))}
@@ -348,12 +350,15 @@ function MessageContent({ content }: { content: string }) {
   return <>{elements}</>;
 }
 
-/** Render bold text within a line */
+/** Render bold and inline code formatting within a line */
 function renderInline(text: string): React.ReactNode {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
   return parts.map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**')) {
       return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return <code key={i}>{part.slice(1, -1)}</code>;
     }
     return part;
   });

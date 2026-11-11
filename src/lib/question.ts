@@ -82,7 +82,7 @@ const PROJECT_TYPE_INTEGRATIONS: Record<string, string[]> = {
   ],
   [ProjectType.Desktop]: [
     'firebase', 'supabase', 'cloudinary', 'aws-services', 'github-api',
-    'openai', 'anthropic', 'google-ai', 'posthog', 'sentry',
+    'openai', 'anthropic', 'google-ai', 'posthog',
   ],
   [ProjectType.API]: [
     'stripe', 'razorpay', 'paddle', 'firebase', 'supabase', 'aws-services',
@@ -190,11 +190,11 @@ export interface FilteredOptions<T = Option> {
  */
 export function getFilteredFeatures(blueprint: Blueprint): FilteredOptions {
   const projectType = blueprint.basics.projectType;
-  if (!projectType) {
+  const relevantIds = projectType ? PROJECT_TYPE_FEATURES[projectType] : undefined;
+  if (!relevantIds) {
     return { recommended: featureOptions, other: [] };
   }
 
-  const relevantIds = PROJECT_TYPE_FEATURES[projectType] ?? [];
   // Also include features already selected by the user (even if not "recommended")
   const selectedIds = new Set(blueprint.features.selected);
 
@@ -217,11 +217,11 @@ export function getFilteredFeatures(blueprint: Blueprint): FilteredOptions {
  */
 export function getFilteredIntegrations(blueprint: Blueprint): FilteredOptions {
   const projectType = blueprint.basics.projectType;
-  if (!projectType) {
+  const relevantIds = projectType ? PROJECT_TYPE_INTEGRATIONS[projectType] : undefined;
+  if (!relevantIds) {
     return { recommended: integrationOptions, other: [] };
   }
 
-  const relevantIds = PROJECT_TYPE_INTEGRATIONS[projectType] ?? [];
   const selectedIds = new Set(blueprint.integrations.selected);
 
   const recommended: Option[] = [];

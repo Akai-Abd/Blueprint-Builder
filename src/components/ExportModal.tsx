@@ -40,26 +40,36 @@ const FORMAT_INFO: {
   { id: 'share', label: 'Share Link', icon: '🔗', desc: 'Shareable URL — anyone with the link can import your blueprint' },
 ];
 
-export default function ExportModal({ isOpen, onClose, generatedDocs, initialMode = 'export' }: ExportModalProps) {
+export default function ExportModal(props: ExportModalProps) {
+  if (!props.isOpen) return null;
+  return <ExportModalContent {...props} />;
+}
+
+function ExportModalContent({
+  onClose,
+  generatedDocs,
+  initialMode = 'export',
+}: ExportModalProps) {
   const blueprint = useBlueprintStore((s) => s.blueprint);
   const loadBlueprint = useBlueprintStore((s) => s.loadBlueprint);
   const [mode, setMode] = useState<ModalMode>(initialMode);
   const [format, setFormat] = useState<ExportFormat>('markdown');
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>(
-    documentTypes.map((d) => d.id)
+    () => documentTypes.map((d) => d.id),
   );
   const [exporting, setExporting] = useState(false);
 
-  // Import state
+  // Import & share state
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [importSuccess, setImportSuccess] = useState(false);
+  const [shareLink, setShareLink] = useState('');
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
   const needsDocs = format !== 'json' && format !== 'share';
-  const [shareLink, setShareLink] = useState('');
 
   const docs = useMemo(() => {
     if (!needsDocs) return [];
@@ -72,8 +82,21 @@ export default function ExportModal({ isOpen, onClose, generatedDocs, initialMod
 
   const toggleDoc = useCallback((id: string) => {
     setSelectedDocIds((prev) =>
-      prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id],
     );
+  }, []);
+
+  const copyShareUrl = useCallback(async (url: string) => {
+    if (!url || !navigator.clipboard) {
+      setCopyStatus('failed');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopyStatus('copied');
+    } catch {
+      setCopyStatus('failed');
+    }
   }, []);
 
   const handleExport = useCallback(async () => {
@@ -95,16 +118,14 @@ export default function ExportModal({ isOpen, onClose, generatedDocs, initialMod
         case 'share': {
           const link = generateShareLink(blueprint);
           setShareLink(link);
-          if (navigator.clipboard) {
-            await navigator.clipboard.writeText(link);
-          }
+          await copyShareUrl(link);
           break;
         }
       }
     } finally {
       setExporting(false);
     }
-  }, [format, blueprint, docs]);
+  }, [format, blueprint, docs, copyShareUrl]);
 
   const handleImport = useCallback(async () => {
     if (!importFile) return;
@@ -148,7 +169,7 @@ export default function ExportModal({ isOpen, onClose, generatedDocs, initialMod
       const modal = modalRef.current;
       if (!modal) return;
       const focusables = modal.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
       );
       if (focusables.length === 0) return;
       const first = focusables[0];
@@ -162,8 +183,6 @@ export default function ExportModal({ isOpen, onClose, generatedDocs, initialMod
       }
     }
   }, [onClose]);
-
-  if (!isOpen) return null;
 
   return (
     <div className="export-overlay" onClick={onClose}>
@@ -280,15 +299,17 @@ export default function ExportModal({ isOpen, onClose, generatedDocs, initialMod
                   />
                   <button
                     className="btn btn--ghost btn--sm"
-                    onClick={async () => {
-                      await navigator.clipboard.writeText(shareLink);
-                    }}
+                    onClick={() => copyShareUrl(shareLink)}
                   >
                     📋 Copy
                   </button>
                 </div>
                 <p className="form-hint" style={{ marginTop: 'var(--space-xs)' }}>
-                  ✅ Link copied to clipboard! Share it with anyone to let them import this blueprint.
+                  {copyStatus === 'copied'
+                    ? '✅ Link copied to clipboard! Share it with anyone to let them import this blueprint.'
+                    : copyStatus === 'failed'
+                    ? '⚠️ Could not access clipboard automatically — copy the URL above manually.'
+                    : 'Share this URL to let others import this blueprint.'}
                 </p>
               </div>
             )}

@@ -77,7 +77,7 @@ export const integrationOptions: Option[] = [
     bestUseCases: ['Mobile apps', 'Real-time apps', 'Quick prototypes', 'Push notifications'],
     advantages: ['All-in-one', 'Real-time database', 'Free tier', 'Google ecosystem'],
     limitations: ['Vendor lock-in', 'NoSQL only', 'Pricing complexity at scale'],
-    compatibleWith: ['react', 'angular', 'mobile', 'firebase-auth'],
+    compatibleWith: ['react', 'angular', 'firebase-auth'],
     alternatives: ['supabase', 'aws-amplify'],
     difficulty: Difficulty.Beginner,
     popularity: 85,

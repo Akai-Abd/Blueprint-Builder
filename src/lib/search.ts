@@ -48,10 +48,16 @@ function buildSearchIndex(): SearchableItem[] {
 let searchIndex: SearchableItem[] | null = null;
 let fuseInstance: Fuse<SearchableItem> | null = null;
 
+function getSearchIndex(): SearchableItem[] {
+  if (!searchIndex) {
+    searchIndex = buildSearchIndex();
+  }
+  return searchIndex;
+}
+
 function getFuse(): Fuse<SearchableItem> {
   if (!fuseInstance) {
-    searchIndex = buildSearchIndex();
-    fuseInstance = new Fuse(searchIndex, {
+    fuseInstance = new Fuse(getSearchIndex(), {
       keys: [
         { name: 'name', weight: 3 },
         { name: 'description', weight: 1.5 },
@@ -80,7 +86,7 @@ export function searchOptions(
 ): SearchResult[] {
   if (!query.trim()) {
     // Return popular items when no query
-    let items = [...(searchIndex ?? buildSearchIndex())].sort((a, b) => b.popularity - a.popularity);
+    let items = [...getSearchIndex()].sort((a, b) => b.popularity - a.popularity);
     if (filter?.sectionType) {
       items = items.filter((i) => i.sectionType === filter.sectionType);
     }
@@ -106,7 +112,7 @@ export function searchOptions(
 }
 
 export function getAllSearchableItems(): SearchableItem[] {
-  return searchIndex ?? buildSearchIndex();
+  return getSearchIndex();
 }
 
 // ─── Recently Used ───────────────────────────────────────────────────
@@ -130,7 +136,7 @@ export function getRecentlyUsed(): SearchableItem[] {
     const raw = localStorage.getItem(RECENT_KEY);
     if (!raw) return [];
     const ids: string[] = JSON.parse(raw);
-    const allItems = searchIndex ?? buildSearchIndex();
+    const allItems = getSearchIndex();
     return ids
       .map((id) => allItems.find((item) => item.id === id))
       .filter((item): item is SearchableItem => item !== undefined);
@@ -157,31 +163,6 @@ export function toggleFavorite(itemId: string): boolean {
     return !wasFav; // returns new state
   } catch {
     return false;
-  }
-}
-
-export function isFavorite(itemId: string): boolean {
-  try {
-    const raw = localStorage.getItem(FAVORITES_KEY);
-    if (!raw) return false;
-    const ids: string[] = JSON.parse(raw);
-    return ids.includes(itemId);
-  } catch {
-    return false;
-  }
-}
-
-export function getFavorites(): SearchableItem[] {
-  try {
-    const raw = localStorage.getItem(FAVORITES_KEY);
-    if (!raw) return [];
-    const ids: string[] = JSON.parse(raw);
-    const allItems = searchIndex ?? buildSearchIndex();
-    return ids
-      .map((id) => allItems.find((item) => item.id === id))
-      .filter((item): item is SearchableItem => item !== undefined);
-  } catch {
-    return [];
   }
 }
 

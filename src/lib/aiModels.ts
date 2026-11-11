@@ -1,4 +1,15 @@
-export const MODELS_BY_PROVIDER: Record<string, { id: string; label: string }[]> = {
+export type LLMProvider = 'google' | 'openai' | 'anthropic' | 'mistral' | 'groq' | 'cohere';
+
+export const LLM_PROVIDERS: readonly LLMProvider[] = [
+  'google',
+  'openai',
+  'anthropic',
+  'mistral',
+  'groq',
+  'cohere',
+];
+
+export const MODELS_BY_PROVIDER: Record<LLMProvider, { id: string; label: string }[]> = {
   google: [
     { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash Preview' },
     { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },

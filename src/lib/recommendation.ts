@@ -33,8 +33,8 @@ const COMPATIBILITY_RULES: CompatibilityRule[] = [
     if: { category: 'frontend', id: 'nextjs' },
     recommend: {
       category: 'database',
-      ids: ['postgresql', 'supabase'],
-      reason: 'PostgreSQL and Supabase pair excellently with Next.js for full-stack apps.',
+      ids: ['postgresql'],
+      reason: 'PostgreSQL pairs excellently with Next.js for full-stack apps.',
     },
   },
   {
@@ -89,8 +89,8 @@ const COMPATIBILITY_RULES: CompatibilityRule[] = [
     if: { category: 'authentication', id: 'supabase-auth' },
     recommend: {
       category: 'database',
-      ids: ['supabase'],
-      reason: 'Supabase Auth integrates natively with the Supabase database platform.',
+      ids: ['postgresql'],
+      reason: 'Supabase Auth is backed by PostgreSQL natively on the Supabase platform.',
     },
   },
 ];
@@ -204,37 +204,6 @@ function getAllSelectedTech(bp: Blueprint): string[] {
 }
 
 /**
- * Generate compatibility-based recommendations for a specific option.
- * Returns recommendations for options that are compatible with current selections.
- */
-export function getRecommendationsForOption(
-  optionId: string,
-  blueprint: Blueprint,
-): Recommendation[] {
-  const selectedTech = getAllSelectedTech(blueprint);
-  const recommendations: Recommendation[] = [];
-
-  // Check if any selected tech has this option in its compatibleWith list
-  for (const techId of selectedTech) {
-    const techOption = allTechnologies.find((t) => t.id === techId);
-    if (!techOption) continue;
-
-    if (techOption.compatibleWith.includes(optionId)) {
-      recommendations.push({
-        id: `compat-${techId}-${optionId}`,
-        type: 'technology',
-        optionId,
-        reason: `Recommended with ${techOption.name} — compatible stack pairing.`,
-        score: techOption.recommendationScore,
-        section: BuilderSectionId.Technology,
-      });
-    }
-  }
-
-  return recommendations;
-}
-
-/**
  * Generate all recommendations for the current blueprint state.
  */
 export function generateRecommendations(blueprint: Blueprint): Recommendation[] {
@@ -300,26 +269,6 @@ export function generateRecommendations(blueprint: Blueprint): Recommendation[] 
   recommendations.sort((a, b) => b.score - a.score);
 
   return recommendations;
-}
-
-/**
- * Get recommendations filtered for a specific section.
- */
-export function getRecommendationsForSection(
-  blueprint: Blueprint,
-  section: BuilderSectionId,
-): Recommendation[] {
-  return generateRecommendations(blueprint).filter((r) => r.section === section);
-}
-
-/**
- * Check if a specific option has any active recommendations.
- */
-export function getOptionRecommendation(
-  optionId: string,
-  blueprint: Blueprint,
-): Recommendation | undefined {
-  return generateRecommendations(blueprint).find((r) => r.optionId === optionId);
 }
 
 /**

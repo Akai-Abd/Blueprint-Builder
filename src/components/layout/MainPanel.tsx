@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useEffect } from 'react';
+import { useMemo } from 'react';
 import { useBlueprintStore } from '@/stores/blueprintStore';
 import { BUILDER_SECTIONS, BuilderSectionId } from '@/types/blueprint';
 import ProjectBasicsSection from '@/components/sections/ProjectBasicsSection';

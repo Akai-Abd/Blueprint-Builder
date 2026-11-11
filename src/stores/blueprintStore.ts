@@ -8,13 +8,7 @@ import {
   ProjectType,
   createEmptyBlueprint,
 } from '@/types/blueprint';
-
-// ─── History for Undo/Redo ───────────────────────────────────────────
-
-interface HistoryEntry {
-  blueprint: Blueprint;
-  timestamp: number;
-}
+import { getOverallProgress, getSectionProgress } from '@/lib/progress';
 
 // ─── Store Interface ─────────────────────────────────────────────────
 
@@ -38,8 +32,6 @@ interface BlueprintStore {
   toggleTargetPlatform: (platform: ProjectType) => void;
 
   // Technology
-  addTechnology: (category: keyof Blueprint['technology'], id: string) => void;
-  removeTechnology: (category: keyof Blueprint['technology'], id: string) => void;
   toggleTechnology: (category: keyof Blueprint['technology'], id: string) => void;
 
   // Features
@@ -54,6 +46,7 @@ interface BlueprintStore {
   // Blueprint Management
   resetBlueprint: () => void;
   loadBlueprint: (blueprint: Blueprint) => void;
+  markComplete: () => void;
 
   // Computed
   getCompletionPercentage: () => number;
@@ -198,30 +191,6 @@ export const useBlueprintStore = create<BlueprintStore>((set, get) => {
       })),
 
     // ── Technology ────────────────────────────────────────────────────
-    addTechnology: (category, id) =>
-      set((s) => ({
-        blueprint: {
-          ...s.blueprint,
-          technology: {
-            ...s.blueprint.technology,
-            [category]: [...s.blueprint.technology[category], id],
-          },
-          updatedAt: new Date().toISOString(),
-        },
-      })),
-
-    removeTechnology: (category, id) =>
-      set((s) => ({
-        blueprint: {
-          ...s.blueprint,
-          technology: {
-            ...s.blueprint.technology,
-            [category]: s.blueprint.technology[category].filter((i) => i !== id),
-          },
-          updatedAt: new Date().toISOString(),
-        },
-      })),
-
     toggleTechnology: (category, id) =>
       set((s) => ({
         blueprint: {
@@ -271,94 +240,25 @@ export const useBlueprintStore = create<BlueprintStore>((set, get) => {
 
     // ── Blueprint Management ──────────────────────────────────────────
     resetBlueprint: () => {
-      const fresh = createEmptyBlueprint();
-      set({
-        blueprint: fresh,
-      });
+      set({ blueprint: createEmptyBlueprint() });
     },
 
-    loadBlueprint: (blueprint) =>
-      set({
-        blueprint,
-      }),
+    loadBlueprint: (blueprint) => {
+      set({ blueprint });
+    },
+
+    markComplete: () =>
+      set((s) => ({
+        blueprint: {
+          ...s.blueprint,
+          status: 'complete',
+          updatedAt: new Date().toISOString(),
+        },
+      })),
 
     // ── Computed ──────────────────────────────────────────────────────
-    getCompletionPercentage: () => {
-      const s = get();
-      let total = 0;
-      let filled = 0;
+    getCompletionPercentage: () => getOverallProgress(get().blueprint).percentage,
 
-      // Basics: name, description, projectType, industry, audience, businessModel
-      const basicsFields = [
-        s.blueprint.basics.name,
-        s.blueprint.basics.description,
-        s.blueprint.basics.projectType,
-        s.blueprint.basics.industry,
-        s.blueprint.basics.targetAudience,
-        s.blueprint.basics.businessModel,
-      ];
-      total += basicsFields.length;
-      filled += basicsFields.filter(Boolean).length;
-
-      // Platforms
-      total += 1;
-      if (s.blueprint.basics.targetPlatforms.length > 0) filled += 1;
-
-      // Technology: at least one selection in any category
-      total += 1;
-      const techValues = Object.values(s.blueprint.technology);
-      if (techValues.some((arr) => arr.length > 0)) filled += 1;
-
-      // Features
-      total += 1;
-      if (s.blueprint.features.selected.length > 0) filled += 1;
-
-      // Integrations
-      total += 1;
-      if (s.blueprint.integrations.selected.length > 0) filled += 1;
-
-      // Quality
-      total += 1;
-      const qualityValues = Object.values(s.blueprint.quality);
-      if (qualityValues.some((arr) => arr.length > 0)) filled += 1;
-
-      return Math.round((filled / total) * 100);
-    },
-
-    getSectionCompletion: (section) => {
-      const s = get();
-      switch (section) {
-        case BuilderSectionId.ProjectBasics: {
-          const fields = [
-            s.blueprint.basics.name,
-            s.blueprint.basics.description,
-            s.blueprint.basics.projectType,
-            s.blueprint.basics.category,
-            s.blueprint.basics.industry,
-            s.blueprint.basics.targetAudience,
-            s.blueprint.basics.businessModel,
-          ];
-          return Math.round((fields.filter(Boolean).length / fields.length) * 100);
-        }
-        case BuilderSectionId.Platforms:
-          return s.blueprint.basics.targetPlatforms.length > 0 ? 100 : 0;
-        case BuilderSectionId.Technology: {
-          const cats = Object.values(s.blueprint.technology);
-          const filled = cats.filter((a) => a.length > 0).length;
-          return Math.round((filled / Math.max(cats.length, 1)) * 100);
-        }
-        case BuilderSectionId.Features:
-          return s.blueprint.features.selected.length > 0 ? 100 : 0;
-        case BuilderSectionId.Integrations:
-          return s.blueprint.integrations.selected.length > 0 ? 100 : 0;
-        case BuilderSectionId.Quality: {
-          const cats = Object.values(s.blueprint.quality);
-          const filled = cats.filter((a) => a.length > 0).length;
-          return Math.round((filled / Math.max(cats.length, 1)) * 100);
-        }
-        default:
-          return 0;
-      }
-    },
+    getSectionCompletion: (section) => getSectionProgress(get().blueprint, section).completion,
   };
 });

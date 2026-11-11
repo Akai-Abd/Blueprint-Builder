@@ -521,7 +521,7 @@
   width: 100%;
   background: none;
   border: 1px dashed var(--border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--border-radius-md);
   padding: var(--space-sm) var(--space-md);
   cursor: pointer;
   transition: background var(--transition-fast), border-color var(--transition-fast);
@@ -529,7 +529,7 @@
 }
 
 .section__group-toggle:hover {
-  background: var(--bg-hover);
+  background: var(--bg-card-hover);
   border-color: var(--border-default);
 }
 
@@ -549,7 +549,7 @@
 .section__collapsed-group {
   margin-top: var(--space-xl);
   border: 1px dashed var(--border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--border-radius-md);
   overflow: hidden;
 }
 
@@ -582,7 +582,7 @@
 }
 
 .section__collapsed-summary:hover {
-  background: var(--bg-hover);
+  background: var(--bg-card-hover);
   color: var(--text-primary);
 }
 
@@ -638,9 +638,9 @@
 
 .question__tooltip {
   font-size: var(--text-xs);
-  color: var(--accent-primary);
+  color: var(--color-primary);
   background: rgba(99, 102, 241, 0.08);
-  border-radius: var(--radius-sm);
+  border-radius: var(--border-radius-sm);
   padding: var(--space-xs) var(--space-sm);
   margin-bottom: var(--space-sm);
 }
@@ -661,40 +661,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: var(--space-2xs);
+  margin-top: var(--space-xs);
   min-height: 20px;
 }
 
 .form-input--error {
-  border-color: var(--danger) !important;
+  border-color: var(--color-error) !important;
 }
 
 .form-error {
   font-size: var(--text-xs);
-  color: var(--danger);
-}
-
-/* ─── MultiSelect ─────────────────────────────────────────────────────── */
-.multi-select__filter {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-md);
-}
-
-.multi-select__filter .form-input {
-  flex: 1;
-}
-
-.multi-select__filter-count {
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-  white-space: nowrap;
-}
-
-.multi-select__empty {
-  text-align: center;
-  color: var(--text-tertiary);
-  font-size: var(--text-sm);
-  padding: var(--space-xl);
+  color: var(--color-error);
 }

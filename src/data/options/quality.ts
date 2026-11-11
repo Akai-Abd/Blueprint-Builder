@@ -61,7 +61,7 @@ export const qualityOptions: Record<string, Option[]> = {
     {
       id: 'code-splitting', name: 'Code Splitting', description: 'Split JavaScript bundles for faster initial page load.', category: 'performance',
       bestUseCases: ['SPAs', 'Large web apps'], advantages: ['Faster load', 'On-demand loading'], limitations: ['Build complexity'],
-      compatibleWith: ['nextjs', 'react', 'vite'], alternatives: [], difficulty: Difficulty.Intermediate, popularity: 88, recommendationScore: 90, tags: ['bundle', 'loading'],
+      compatibleWith: ['nextjs', 'react'], alternatives: [], difficulty: Difficulty.Intermediate, popularity: 88, recommendationScore: 90, tags: ['bundle', 'loading'],
       icon: '✂️',
     },
     {
@@ -151,25 +151,25 @@ export const qualityOptions: Record<string, Option[]> = {
     {
       id: 'unit-testing', name: 'Unit Testing', description: 'Test individual functions and components in isolation.', category: 'testing',
       bestUseCases: ['All projects'], advantages: ['Bug prevention', 'Refactoring confidence'], limitations: ['Writing time'],
-      compatibleWith: ['jest', 'vitest'], alternatives: [], difficulty: Difficulty.Intermediate, popularity: 88, recommendationScore: 90, tags: ['jest', 'vitest'],
+      compatibleWith: [], alternatives: [], difficulty: Difficulty.Intermediate, popularity: 88, recommendationScore: 90, tags: ['jest', 'vitest'],
       icon: '🧪',
     },
     {
       id: 'e2e-testing', name: 'End-to-End Testing', description: 'Test full user flows in a real browser environment.', category: 'testing',
       bestUseCases: ['Critical user flows', 'Auth flows'], advantages: ['Real user simulation', 'Catch integration bugs'], limitations: ['Slow', 'Flaky tests'],
-      compatibleWith: ['playwright', 'cypress'], alternatives: [], difficulty: Difficulty.Intermediate, popularity: 75, recommendationScore: 82, tags: ['playwright', 'cypress'],
+      compatibleWith: [], alternatives: [], difficulty: Difficulty.Intermediate, popularity: 75, recommendationScore: 82, tags: ['playwright', 'cypress'],
       icon: '🎭',
     },
     {
       id: 'integration-testing', name: 'Integration Testing', description: 'Test component interactions, API contracts, and service boundaries.', category: 'testing',
       bestUseCases: ['APIs', 'Microservices', 'Multi-component systems'], advantages: ['Catch boundary bugs', 'Contract validation', 'API reliability'], limitations: ['Setup complexity', 'Slower than unit tests'],
-      compatibleWith: ['jest', 'vitest', 'supertest'], alternatives: [], difficulty: Difficulty.Intermediate, popularity: 68, recommendationScore: 78, tags: ['integration', 'contracts', 'api'],
+      compatibleWith: [], alternatives: [], difficulty: Difficulty.Intermediate, popularity: 68, recommendationScore: 78, tags: ['integration', 'contracts', 'api'],
       icon: '🔗',
     },
     {
       id: 'visual-regression', name: 'Visual Regression Testing', description: 'Screenshot diffing to catch unintended UI changes — Chromatic, Percy, or Playwright.', category: 'testing',
       bestUseCases: ['Design systems', 'Component libraries', 'UI-heavy apps'], advantages: ['Catch visual bugs', 'Automated reviews', 'Design consistency'], limitations: ['Flaky with animations', 'Storage costs', 'Setup effort'],
-      compatibleWith: ['storybook', 'playwright'], alternatives: [], difficulty: Difficulty.Intermediate, popularity: 45, recommendationScore: 62, tags: ['visual', 'screenshots', 'regression'],
+      compatibleWith: [], alternatives: [], difficulty: Difficulty.Intermediate, popularity: 45, recommendationScore: 62, tags: ['visual', 'screenshots', 'regression'],
       icon: '📸',
     },
     {
@@ -209,7 +209,7 @@ export const qualityOptions: Record<string, Option[]> = {
     {
       id: 'containerization', name: 'Containerization', description: 'Package app in Docker containers for consistent deployments.', category: 'deployment',
       bestUseCases: ['Microservices', 'Multi-env deployments'], advantages: ['Consistency', 'Isolation', 'Scalability'], limitations: ['Learning curve'],
-      compatibleWith: ['docker', 'kubernetes'], alternatives: [], difficulty: Difficulty.Intermediate, popularity: 82, recommendationScore: 80, tags: ['docker', 'containers'],
+      compatibleWith: ['docker'], alternatives: [], difficulty: Difficulty.Intermediate, popularity: 82, recommendationScore: 80, tags: ['docker', 'containers'],
       icon: '🐳',
     },
     {

@@ -630,8 +630,8 @@
 }
 
 .export-tab--active {
-  color: var(--accent-primary);
-  border-bottom-color: var(--accent-primary);
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
 }
 
 /* ─── Import Dropzone ─────────────────────────────────────────────────── */
@@ -643,13 +643,13 @@
   gap: var(--space-sm);
   padding: var(--space-2xl);
   border: 2px dashed var(--border-default);
-  border-radius: var(--radius-lg);
+  border-radius: var(--border-radius-lg);
   cursor: pointer;
   transition: border-color var(--transition-fast), background var(--transition-fast);
 }
 
 .import-dropzone:hover {
-  border-color: var(--accent-primary);
+  border-color: var(--color-primary);
   background: rgba(99, 102, 241, 0.04);
 }
 
@@ -666,19 +666,19 @@
 .import-dropzone__filename {
   font-size: var(--text-sm);
   font-weight: var(--font-semibold);
-  color: var(--accent-primary);
+  color: var(--color-primary);
 }
 
 .import-message {
   margin-top: var(--space-md);
   padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-md);
+  border-radius: var(--border-radius-md);
   font-size: var(--text-sm);
 }
 
 .import-message--error {
   background: rgba(239, 68, 68, 0.08);
-  color: var(--danger);
+  color: var(--color-error);
 }
 
 .import-message--success {

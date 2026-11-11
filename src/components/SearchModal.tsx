@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   searchOptions,
   searchFilterCategories,
+  getAllSearchableItems,
   getRecentlyUsed,
-  getFavorites,
   getFavoriteIds,
   toggleFavorite,
   trackUsage,
@@ -28,10 +28,15 @@ const SECTION_TYPE_TO_SECTION: Record<string, BuilderSectionId> = {
 };
 
 export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
+  if (!isOpen) return null;
+  return <SearchModalContent onClose={onClose} />;
+}
+
+function SearchModalContent({ onClose }: { onClose: () => void }) {
   const [query, setQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [focusedIndex, setFocusedIndex] = useState(0);
-  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(() => getFavoriteIds());
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -46,7 +51,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
   // Main search results
   const results = useMemo(() => {
     if (activeFilter === 'favorites') {
-      const favItems = getFavorites();
+      const favItems = getAllSearchableItems().filter((item) => favoriteIds.has(item.id));
       if (query.trim()) {
         const q = query.toLowerCase();
         return favItems
@@ -61,7 +66,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
     }
     const filter = activeFilter !== 'all' ? { sectionType: activeFilter } : undefined;
     return searchOptions(query, filter);
-  }, [query, activeFilter]);
+  }, [query, activeFilter, favoriteIds]);
 
   // Recently used (shown only when no query and filter is "all")
   const recentItems = useMemo(() => {
@@ -69,26 +74,11 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
     return getRecentlyUsed();
   }, [query, activeFilter]);
 
-  // Reset state and focus input when modal opens
+  // Focus input on mount
   useEffect(() => {
-    if (isOpen) {
-      setQuery('');
-      setActiveFilter('all');
-      setFocusedIndex(0);
-      setFavoriteIds(getFavoriteIds());
-      const t = setTimeout(() => inputRef.current?.focus(), 50);
-      return () => clearTimeout(t);
-    }
-  }, [isOpen]);
-
-  // Reset focus when results change
-  const prevResultsLength = useRef(results.length);
-  useEffect(() => {
-    if (results.length !== prevResultsLength.current) {
-      prevResultsLength.current = results.length;
-      setFocusedIndex(0);
-    }
-  }, [results.length]);
+    const t = setTimeout(() => inputRef.current?.focus(), 50);
+    return () => clearTimeout(t);
+  }, []);
 
   const isItemSelected = useCallback(
     (result: SearchResult): boolean => {
@@ -163,6 +153,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
   // Total items for keyboard navigation
   const totalItems = recentItems.length + results.length;
+  const effectiveFocusedIndex = totalItems > 0 ? Math.min(focusedIndex, totalItems - 1) : 0;
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -179,10 +170,10 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
           e.preventDefault();
           // Determine which item is focused
           let targetResult: SearchResult | undefined;
-          if (focusedIndex < recentItems.length) {
-            targetResult = { item: recentItems[focusedIndex], score: 0 };
+          if (effectiveFocusedIndex < recentItems.length) {
+            targetResult = { item: recentItems[effectiveFocusedIndex], score: 0 };
           } else {
-            targetResult = results[focusedIndex - recentItems.length];
+            targetResult = results[effectiveFocusedIndex - recentItems.length];
           }
           if (targetResult) {
             if (e.shiftKey) {
@@ -218,7 +209,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
         }
       }
     },
-    [totalItems, focusedIndex, recentItems, results, handleSelect, handleNavigateToSection, onClose]
+    [totalItems, effectiveFocusedIndex, recentItems, results, handleSelect, handleNavigateToSection, onClose]
   );
 
   // Scroll focused item into view
@@ -229,9 +220,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
     if (focused) {
       focused.scrollIntoView({ block: 'nearest' });
     }
-  }, [focusedIndex]);
-
-  if (!isOpen) return null;
+  }, [effectiveFocusedIndex]);
 
   // Group results by section type
   const grouped = results.reduce<Record<string, SearchResult[]>>((acc, r) => {
@@ -253,7 +242,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
     return (
       <div
         key={item.id}
-        className={`search-result ${idx === focusedIndex ? 'search-result--focused' : ''}`}
+        className={`search-result ${idx === effectiveFocusedIndex ? 'search-result--focused' : ''}`}
         onClick={onClick}
         onMouseEnter={() => setFocusedIndex(idx)}
       >
@@ -306,7 +295,10 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
             type="text"
             placeholder="Search technologies, features, integrations..."
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setFocusedIndex(0);
+            }}
             autoComplete="off"
             spellCheck={false}
           />
@@ -319,7 +311,10 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
             <button
               key={f.id}
               className={`search-filter ${activeFilter === f.id ? 'search-filter--active' : ''}`}
-              onClick={() => setActiveFilter(f.id)}
+              onClick={() => {
+                setActiveFilter(f.id);
+                setFocusedIndex(0);
+              }}
             >
               <span>{f.icon}</span>
               {f.label}

@@ -254,6 +254,11 @@ function handleFreeformMessage(message: string, bp: Blueprint): string {
 
 // ─── Public API ──────────────────────────────────────────────────────
 
+export interface ChatTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 /**
  * Process a user message or quick action and return an assistant response.
  * Simulates async delay for natural feel.
@@ -265,6 +270,7 @@ export async function getAssistantResponse(
   apiKey?: string,
   provider?: string,
   modelId?: string,
+  history: ChatTurn[] = [],
 ): Promise<string> {
   // Quick actions
   switch (input) {
@@ -286,12 +292,19 @@ export async function getAssistantResponse(
     default:
       if (apiKey && apiKey.trim() !== '') {
         try {
+          const apiMessages = [
+            ...history
+              .filter((m) => m.content.trim().length > 0)
+              .slice(-19)
+              .map((m) => ({ role: m.role, content: m.content })),
+            { role: 'user' as const, content: input },
+          ];
           const res = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               blueprint,
-              messages: [{ role: 'user', content: input }],
+              messages: apiMessages,
               apiKey,
               provider,
               modelId,
@@ -302,10 +315,10 @@ export async function getAssistantResponse(
             return data.text;
           }
         } catch (e) {
-          console.error("Failed to hit chat API, falling back to local handler", e);
+          console.error('Failed to hit chat API, falling back to local handler', e);
         }
       }
-      
+
       await new Promise((resolve) => setTimeout(resolve, 200 + Math.random() * 400));
       return handleFreeformMessage(input, blueprint);
   }

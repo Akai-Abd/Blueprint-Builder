@@ -223,7 +223,7 @@
   font-size: 1rem;
   color: var(--text-muted);
   padding: 2px 4px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--border-radius-sm);
   transition: color var(--transition-fast), transform var(--transition-fast);
   line-height: 1;
 }

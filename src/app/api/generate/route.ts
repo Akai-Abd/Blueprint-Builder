@@ -1,49 +1,42 @@
 import { generateText } from 'ai';
-import { google, createGoogleGenerativeAI } from '@ai-sdk/google';
-import { createOpenAI } from '@ai-sdk/openai';
-import { createAnthropic } from '@ai-sdk/anthropic';
-import { createMistral } from '@ai-sdk/mistral';
-import { createGroq } from '@ai-sdk/groq';
-import { createCohere } from '@ai-sdk/cohere';
 import { NextRequest, NextResponse } from 'next/server';
+import { ApiRequestError, resolveLanguageModel } from '@/lib/aiProvider';
 
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
-    const { blueprint, documentId, documentTitle, documentDescription, apiKey, provider = 'google', modelId } = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
 
-    if (!blueprint || !documentTitle) {
+    const {
+      blueprint,
+      documentTitle,
+      documentDescription,
+      apiKey,
+      provider,
+      modelId,
+    } = body as Record<string, unknown>;
+
+    if (
+      !blueprint ||
+      typeof blueprint !== 'object' ||
+      typeof documentTitle !== 'string' ||
+      !documentTitle.trim()
+    ) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
     }
-    
-    let model;
-    
-    if (provider === 'openai') {
-      const customOpenAI = apiKey ? createOpenAI({ apiKey }) : createOpenAI();
-      model = customOpenAI(modelId || 'gpt-4o');
-    } else if (provider === 'anthropic') {
-      const customAnthropic = apiKey ? createAnthropic({ apiKey }) : createAnthropic();
-      model = customAnthropic(modelId || 'claude-3-5-sonnet-20240620');
-    } else if (provider === 'mistral') {
-      const customMistral = apiKey ? createMistral({ apiKey }) : createMistral();
-      model = customMistral(modelId || 'mistral-large-latest');
-    } else if (provider === 'groq') {
-      const customGroq = apiKey ? createGroq({ apiKey }) : createGroq();
-      model = customGroq(modelId || 'llama-3-70b-versatile');
-    } else if (provider === 'cohere') {
-      const customCohere = apiKey ? createCohere({ apiKey }) : createCohere();
-      model = customCohere(modelId || 'command-r-plus');
-    } else {
-      const customGoogle = apiKey ? createGoogleGenerativeAI({ apiKey }) : google;
-      model = customGoogle(modelId || 'gemini-3-flash-preview');
-    }
 
-    const systemPrompt = `You are an expert Software Architect, Product Manager, and Technical Writer.
+    const model = resolveLanguageModel(provider, modelId, apiKey);
+    const descriptionText = typeof documentDescription === 'string' ? documentDescription : '';
+
+    const instructions = `You are an expert Software Architect, Product Manager, and Technical Writer.
 Your task is to generate a highly detailed, professional project document for a user's application blueprint.
 
 The document you are generating is: **${documentTitle}**
-Description of what this document should contain: ${documentDescription}
+Description of what this document should contain: ${descriptionText}
 
 Here is the JSON representation of the user's project Blueprint:
 \`\`\`json
@@ -58,18 +51,18 @@ Instructions:
 5. Make sure the output is comprehensive and ready for production use.`;
 
     const { text } = await generateText({
-      model: model,
-      system: systemPrompt,
+      model,
+      instructions,
       prompt: `Please generate the complete ${documentTitle} document now.`,
       temperature: 0.2,
     });
 
     return NextResponse.json({ text });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    if (error instanceof ApiRequestError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error('Generation Error:', error);
-    return NextResponse.json(
-      { error: error?.message || 'Failed to generate document' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to generate document' }, { status: 500 });
   }
 }

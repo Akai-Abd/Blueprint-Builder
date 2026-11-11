@@ -103,6 +103,7 @@ export function clearCurrentBlueprintId(): void {
 // ─── Debounced Auto-Save ─────────────────────────────────────────────
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingBlueprint: Blueprint | null = null;
 let onSaveStart: (() => void) | null = null;
 let onSaveEnd: (() => void) | null = null;
 
@@ -116,13 +117,23 @@ export function setAutoSaveCallbacks(
 
 export function debouncedSave(blueprint: Blueprint, delayMs = 500): void {
   if (saveTimer) clearTimeout(saveTimer);
+  pendingBlueprint = blueprint;
   onSaveStart?.();
   saveTimer = setTimeout(() => {
-    saveBlueprint(blueprint);
-    setCurrentBlueprintId(blueprint.id);
-    onSaveEnd?.();
-    saveTimer = null;
+    flushPendingSave();
   }, delayMs);
 }
 
-
+/** Persist any queued debounced blueprint immediately (e.g. on pagehide/unmount). */
+export function flushPendingSave(): void {
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  if (!pendingBlueprint) return;
+  const toSave = pendingBlueprint;
+  pendingBlueprint = null;
+  saveBlueprint(toSave);
+  setCurrentBlueprintId(toSave.id);
+  onSaveEnd?.();
+}
